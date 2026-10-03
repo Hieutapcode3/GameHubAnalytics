@@ -346,8 +346,12 @@ namespace GameHub.Analytics
             // Tăng completed
             sb.Append("{\"fieldPath\":\"completed\",\"increment\":{\"integerValue\":\"1\"}}");
 
+            string playTimeStr = playTime.ToString("G", CultureInfo.InvariantCulture);
+
             // Cộng thêm totalPlayTime
-            sb.Append($",{{\"fieldPath\":\"totalPlayTime\",\"increment\":{{\"doubleValue\":{playTime.ToString("G", CultureInfo.InvariantCulture)}}}}}");
+            sb.Append(",{\"fieldPath\":\"totalPlayTime\",\"increment\":{\"doubleValue\":");
+            sb.Append(playTimeStr);
+            sb.Append("}}");
 
             // lastPlayed server time
             sb.Append(",{\"fieldPath\":\"lastPlayed\",\"setToServerValue\":\"REQUEST_TIME\"}");
@@ -357,9 +361,11 @@ namespace GameHub.Analytics
             // Nếu là best time → thêm write riêng để set bestTime (không dùng increment vì cần set giá trị mới)
             if (setNewBest)
             {
-                sb.Append($",{{\"update\":{{\"name\":\"{docPath}\"," +
-                          $"\"fields\":{{\"bestTime\":{{\"doubleValue\":{playTime.ToString("G", CultureInfo.InvariantCulture)}}}}}}}}," +
-                          $"\"updateMask\":{{\"fieldPaths\":[\"bestTime\"]}}}}");
+                sb.Append(",{\"update\":{\"name\":\"");
+                sb.Append(docPath);
+                sb.Append("\",\"fields\":{\"bestTime\":{\"doubleValue\":");
+                sb.Append(playTimeStr);
+                sb.Append("}}},\"updateMask\":{\"fieldPaths\":[\"bestTime\"]}}");
             }
 
             sb.Append("]}");
