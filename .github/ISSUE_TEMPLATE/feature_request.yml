@@ -1,0 +1,96 @@
+---
+name: "✨ Feature Request"
+description: "Đề xuất tính năng mới cho GameHub Analytics"
+title: "[FEAT] "
+labels: ["enhancement"]
+assignees: []
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## ✨ Feature Request
+        Cảm ơn bạn đã đề xuất! Mô tả rõ tính năng để chúng tôi xem xét thêm vào roadmap.
+
+  - type: checkboxes
+    id: prerequisites
+    attributes:
+      label: "✅ Kiểm tra trước khi đề xuất"
+      options:
+        - label: Tôi đã tìm kiếm và không thấy feature request tương tự
+          required: true
+        - label: Tính năng này phù hợp với mục đích internal analytics
+          required: false
+
+  - type: dropdown
+    id: feature-category
+    attributes:
+      label: "📁 Loại tính năng"
+      options:
+        - "📊 Analytics / Tracking"
+        - "🔥 Firebase / Backend"
+        - "🎛️ Editor Tools"
+        - "📱 Platform Support"
+        - "🔧 Developer Experience"
+        - "📦 Package / Distribution"
+        - "⚡ Performance"
+        - "🔒 Security"
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem-statement
+    attributes:
+      label: "❓ Vấn đề hiện tại"
+      description: "Mô tả vấn đề hoặc hạn chế bạn đang gặp phải."
+      placeholder: "Hiện tại tôi không thể xem winrate theo ngày..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposed-solution
+    attributes:
+      label: "💡 Giải pháp đề xuất"
+      description: "Mô tả tính năng bạn muốn thêm."
+      placeholder: "Thêm filter theo date range trong Dashboard..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: api-design
+    attributes:
+      label: "🧪 API Design (nếu có)"
+      description: "Nếu là tính năng code, bạn muốn API trông như thế nào?"
+      render: csharp
+      placeholder: |
+        // Ví dụ API mong muốn:
+        AnalyticsManager.Instance.GetStatsForDateRange(
+            missionId: "level_01",
+            from: DateTime.Now.AddDays(-7),
+            to: DateTime.Now,
+            onComplete: stats => Debug.Log(stats.WinRate)
+        );
+
+  - type: dropdown
+    id: priority
+    attributes:
+      label: "🔥 Mức độ ưu tiên"
+      options:
+        - "Critical — Blocking release"
+        - "High — Affects daily workflow"
+        - "Medium — Nice to have"
+        - "Low — Future consideration"
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: "🔄 Giải pháp thay thế đã thử"
+      description: "Bạn đã thử workaround nào chưa?"
+
+  - type: textarea
+    id: additional-context
+    attributes:
+      label: "📎 Thông tin bổ sung"
+      description: "Mockup, reference, hay bất kỳ thông tin nào khác."

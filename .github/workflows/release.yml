@@ -1,0 +1,114 @@
+name: 🚀 Release — Tag & Publish Package
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to release (e.g. 1.0.1)'
+        required: true
+        default: '1.0.0'
+      release_notes:
+        description: 'Release notes'
+        required: false
+        default: 'Bug fixes and improvements'
+
+jobs:
+  release:
+    name: 🏷️ Create Release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: 📥 Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          lfs: true
+
+      - name: 🔖 Extract Version from package.json
+        id: version
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            VERSION="${{ github.event.inputs.version }}"
+          else
+            VERSION=$(python3 -c "import json; print(json.load(open('Assets/GameHubAnalytics/package.json'))['version'])")
+          fi
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "tag=v$VERSION" >> $GITHUB_OUTPUT
+          echo "📦 Releasing version: $VERSION"
+
+      - name: 📋 Extract Changelog for this version
+        id: changelog
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          # Lấy phần changelog cho version này
+          NOTES=$(python3 << 'EOF'
+          import re, sys
+          try:
+              with open('Assets/GameHubAnalytics/CHANGELOG.md', 'r', encoding='utf-8') as f:
+                  content = f.read()
+              pattern = rf'## \[{re.escape("$VERSION")}\].*?\n(.*?)(?=\n## |\Z)'
+              match = re.search(pattern.replace('$VERSION', sys.argv[1]), content, re.DOTALL)
+              print(match.group(1).strip() if match else 'See CHANGELOG.md for details.')
+          except:
+              print('See CHANGELOG.md for details.')
+          EOF
+          python3 /dev/stdin "$VERSION")
+          echo "notes<<EOF" >> $GITHUB_OUTPUT
+          echo "$NOTES" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: 🏷️ Create Git Tag
+        run: |
+          TAG="${{ steps.version.outputs.tag }}"
+          git config user.name "GitHub Actions"
+          git config user.email "actions@github.com"
+          
+          # Tạo tag nếu chưa có
+          if git rev-parse "$TAG" >/dev/null 2>&1; then
+            echo "Tag $TAG already exists, skipping..."
+          else
+            git tag -a "$TAG" -m "Release $TAG"
+            git push origin "$TAG"
+            echo "✅ Created and pushed tag: $TAG"
+          fi
+
+      - name: 📦 Package .unitypackage
+        run: |
+          echo "Creating .unitypackage placeholder..."
+          # Note: Actual Unity packaging requires Unity Editor
+          # For now, zip the source as distributable
+          zip -r "GameHubAnalytics_${{ steps.version.outputs.tag }}.zip" \
+            Assets/GameHubAnalytics/ \
+            -x "*.DS_Store" -x "*__pycache__*"
+          echo "✅ Package created."
+
+      - name: 🚀 Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ steps.version.outputs.tag }}
+          name: "🎮 GameHub Analytics ${{ steps.version.outputs.tag }}"
+          body: |
+            ## GameHub Analytics ${{ steps.version.outputs.tag }}
+            
+            ### 📦 Installation
+            Download `GameHubAnalytics_${{ steps.version.outputs.tag }}.zip` and import into Unity.
+            
+            ### 📋 What's Changed
+            ${{ steps.changelog.outputs.notes }}
+            
+            ### 🔧 Requirements
+            - Unity 6000.x (URP)
+            - Firebase Project with Firestore enabled
+            
+            ### 📖 Documentation
+            See [README.md](https://github.com/${{ github.repository }}/blob/main/Assets/GameHubAnalytics/README.md)
+          files: |
+            GameHubAnalytics_${{ steps.version.outputs.tag }}.zip
+          draft: false
+          prerelease: false
+          generate_release_notes: true

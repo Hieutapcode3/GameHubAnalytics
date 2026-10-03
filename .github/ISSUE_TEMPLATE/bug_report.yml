@@ -1,0 +1,106 @@
+---
+name: "🐛 Bug Report"
+description: "Báo cáo lỗi trong GameHub Analytics"
+title: "[BUG] "
+labels: ["bug", "triage"]
+assignees: []
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## 🐛 Bug Report
+        Cảm ơn bạn đã báo cáo lỗi! Vui lòng điền đầy đủ thông tin để chúng tôi có thể fix nhanh nhất.
+
+  - type: checkboxes
+    id: prerequisites
+    attributes:
+      label: "✅ Kiểm tra trước khi báo lỗi"
+      options:
+        - label: Tôi đã tìm kiếm và không thấy issue tương tự
+          required: true
+        - label: Tôi đã đọc README.md
+          required: true
+        - label: AnalyticsConfig đã được cấu hình đầy đủ
+          required: false
+
+  - type: dropdown
+    id: unity-version
+    attributes:
+      label: "🎮 Unity Version"
+      options:
+        - "6000.0.x"
+        - "2023.3.x"
+        - "2022.3.x (LTS)"
+        - "Khác"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: platform
+    attributes:
+      label: "📱 Platform"
+      multiple: true
+      options:
+        - Android
+        - iOS
+        - Windows Editor
+        - macOS Editor
+        - Linux Editor
+        - WebGL
+    validations:
+      required: true
+
+  - type: textarea
+    id: describe-bug
+    attributes:
+      label: "🔍 Mô tả lỗi"
+      description: "Mô tả rõ ràng và súc tích về lỗi xảy ra."
+      placeholder: "Khi gọi LogStartMission(), console hiển thị lỗi..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduce-steps
+    attributes:
+      label: "🔄 Các bước tái hiện lỗi"
+      description: "Các bước để tái hiện lỗi."
+      value: |
+        1. Mở scene '...'
+        2. Gọi '...'
+        3. Xem Console
+        4. Thấy lỗi
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected-behavior
+    attributes:
+      label: "✅ Hành vi mong đợi"
+      placeholder: "Kỳ vọng event được gửi lên Firestore thành công."
+    validations:
+      required: true
+
+  - type: textarea
+    id: console-output
+    attributes:
+      label: "📋 Console Output / Stack Trace"
+      description: "Paste toàn bộ error message từ Unity Console."
+      render: text
+
+  - type: textarea
+    id: config-info
+    attributes:
+      label: "⚙️ Thông tin Config"
+      description: "Thông tin cấu hình (KHÔNG paste API Key!)"
+      value: |
+        - Package Version: 1.0.0
+        - Firebase Project ID: [project-id]
+        - isEnabled: true/false
+        - enableDebugLog: true/false
+
+  - type: textarea
+    id: additional-context
+    attributes:
+      label: "📎 Thông tin bổ sung"
+      description: "Screenshots, video, hay bất kỳ thông tin nào khác."

@@ -1,0 +1,114 @@
+name: 🔍 CI — Build & Validate
+
+on:
+  push:
+    branches:
+      - develop
+      - 'feature/**'
+      - 'hotfix/**'
+      - 'release/**'
+  pull_request:
+    branches:
+      - main
+      - develop
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ─────────────────────────────────────────────────────────
+  #  Job 1: Validate Code Quality
+  # ─────────────────────────────────────────────────────────
+  validate:
+    name: 🔎 Validate Code
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 📥 Checkout
+        uses: actions/checkout@v4
+        with:
+          lfs: true
+
+      - name: 🔍 Check for TODO/FIXME/HACK comments
+        run: |
+          echo "Scanning for unresolved TODOs..."
+          COUNT=$(grep -r "TODO\|FIXME\|HACK\|XXX" Assets/GameHubAnalytics/Runtime --include="*.cs" | wc -l)
+          echo "Found $COUNT TODO/FIXME comments"
+          # Không fail, chỉ report
+          grep -r "TODO\|FIXME\|HACK\|XXX" Assets/GameHubAnalytics/Runtime --include="*.cs" || true
+
+      - name: 📋 Verify Package Structure
+        run: |
+          echo "Verifying GameHub Analytics package structure..."
+          REQUIRED_FILES=(
+            "Assets/GameHubAnalytics/package.json"
+            "Assets/GameHubAnalytics/Runtime/GameHubAnalytics.asmdef"
+            "Assets/GameHubAnalytics/Runtime/Core/AnalyticsManager.cs"
+            "Assets/GameHubAnalytics/Runtime/Core/FirestoreClient.cs"
+            "Assets/GameHubAnalytics/Runtime/Core/EventQueue.cs"
+            "Assets/GameHubAnalytics/Runtime/Core/SessionManager.cs"
+            "Assets/GameHubAnalytics/Runtime/Core/PlayerDataManager.cs"
+            "Assets/GameHubAnalytics/Runtime/Models/AnalyticsConfig.cs"
+            "Assets/GameHubAnalytics/Runtime/Models/MissionEvent.cs"
+            "Assets/GameHubAnalytics/Runtime/Models/PlayerStats.cs"
+            "Assets/GameHubAnalytics/Editor/GameHubAnalytics.Editor.asmdef"
+            "Assets/GameHubAnalytics/README.md"
+            "Assets/GameHubAnalytics/CHANGELOG.md"
+          )
+          
+          MISSING=0
+          for FILE in "${REQUIRED_FILES[@]}"; do
+            if [ ! -f "$FILE" ]; then
+              echo "❌ MISSING: $FILE"
+              MISSING=$((MISSING + 1))
+            else
+              echo "✅ OK: $FILE"
+            fi
+          done
+          
+          if [ $MISSING -gt 0 ]; then
+            echo "::error::$MISSING required file(s) are missing!"
+            exit 1
+          fi
+          echo "✅ All required files present!"
+
+      - name: 🔒 Check for Secrets in Code
+        run: |
+          echo "Scanning for hardcoded secrets..."
+          PATTERNS="AIza[0-9A-Za-z-_]{35}|AAAA[A-Za-z0-9_-]{7}:[A-Za-z0-9_-]{140}"
+          if grep -rE "$PATTERNS" Assets/GameHubAnalytics --include="*.cs" --include="*.json"; then
+            echo "::error::Potential API keys found in source code!"
+            exit 1
+          fi
+          echo "✅ No hardcoded secrets detected."
+
+      - name: 📦 Validate package.json
+        run: |
+          echo "Validating package.json..."
+          cat Assets/GameHubAnalytics/package.json
+          python3 -c "import json,sys; json.load(open('Assets/GameHubAnalytics/package.json')); print('✅ package.json is valid JSON')"
+
+  # ─────────────────────────────────────────────────────────
+  #  Job 2: PR Check Summary
+  # ─────────────────────────────────────────────────────────
+  pr-summary:
+    name: 📝 PR Summary
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+
+    steps:
+      - name: 📥 Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: 📊 Changed Files Summary
+        run: |
+          echo "## 📊 Changed Files" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          git diff --name-only origin/${{ github.base_ref }}...HEAD >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          
+          CS_COUNT=$(git diff --name-only origin/${{ github.base_ref }}...HEAD | grep "\.cs$" | wc -l)
+          echo "**C# files changed:** $CS_COUNT" >> $GITHUB_STEP_SUMMARY
