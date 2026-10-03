@@ -207,11 +207,11 @@ namespace GameHub.Analytics
             (string field, object value) increment2 = default,
             Action<bool> onComplete = null)
         {
-            string docPath = $"projects/{_config.projectId}/databases/(default)/documents" +
+            string docPath = $"projects/{_config.CleanProjectId}/databases/(default)/documents" +
                              $"/players/{_playerId}/missions/{missionId}";
 
-            string url  = $"https://firestore.googleapis.com/v1/projects/{_config.projectId}" +
-                          $"/databases/(default)/documents:commit?key={_config.apiKey}";
+            string url  = $"https://firestore.googleapis.com/v1/projects/{_config.CleanProjectId}" +
+                          $"/databases/(default)/documents:commit?key={_config.CleanApiKey}";
             string body = BuildCommitBody(docPath, increment1, increment2);
 
             using (var request = new UnityWebRequest(url, "POST"))
@@ -246,11 +246,11 @@ namespace GameHub.Analytics
         private IEnumerator CommitCompletionIncrement(string missionId, float playTime, bool isNewBest,
             Action<bool> onComplete = null)
         {
-            string docPath = $"projects/{_config.projectId}/databases/(default)/documents" +
+            string docPath = $"projects/{_config.CleanProjectId}/databases/(default)/documents" +
                              $"/players/{_playerId}/missions/{missionId}";
 
-            string url  = $"https://firestore.googleapis.com/v1/projects/{_config.projectId}" +
-                          $"/databases/(default)/documents:commit?key={_config.apiKey}";
+            string url  = $"https://firestore.googleapis.com/v1/projects/{_config.CleanProjectId}" +
+                          $"/databases/(default)/documents:commit?key={_config.CleanApiKey}";
             string body = BuildCompletionCommitBody(docPath, playTime, isNewBest);
 
             using (var request = new UnityWebRequest(url, "POST"))

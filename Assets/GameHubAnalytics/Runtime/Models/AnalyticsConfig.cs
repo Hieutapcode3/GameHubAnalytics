@@ -54,17 +54,28 @@ namespace GameHub.Analytics
         public float requestTimeoutSeconds = 10f;
 
         // ─────────────────────────────────────────────────────────
-        //  Computed Properties
+        //  Computed Properties (Auto-Trimmed to prevent space errors)
         // ─────────────────────────────────────────────────────────
+
+        public string CleanProjectId => projectId?.Trim() ?? "";
+        public string CleanApiKey    => apiKey?.Trim() ?? "";
+        public string CleanGameId    => gameId?.Trim() ?? "";
 
         /// <summary>Base URL của Firestore REST API cho project này.</summary>
         public string FirestoreBaseUrl =>
-            $"https://firestore.googleapis.com/v1/projects/{projectId}/databases/(default)/documents";
+            $"https://firestore.googleapis.com/v1/projects/{CleanProjectId}/databases/(default)/documents";
 
         /// <summary>Kiểm tra config đã được điền đầy đủ các trường bắt buộc chưa.</summary>
         public bool IsValid =>
-            !string.IsNullOrEmpty(apiKey) &&
-            !string.IsNullOrEmpty(projectId) &&
-            !string.IsNullOrEmpty(gameId);
+            !string.IsNullOrWhiteSpace(apiKey) &&
+            !string.IsNullOrWhiteSpace(projectId) &&
+            !string.IsNullOrWhiteSpace(gameId);
+
+        private void OnValidate()
+        {
+            if (apiKey != null) apiKey = apiKey.Trim();
+            if (projectId != null) projectId = projectId.Trim();
+            if (gameId != null) gameId = gameId.Trim();
+        }
     }
 }
