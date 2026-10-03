@@ -1,0 +1,121 @@
+# ═══════════════════════════════════════════════════
+#  Unity .gitignore — Professional Configuration
+#  Ref: github.com/github/gitignore/blob/main/Unity.gitignore
+# ═══════════════════════════════════════════════════
+
+# ── Unity Generated ─────────────────────────────────
+[Ll]ibrary/
+[Tt]emp/
+[Oo]bj/
+[Bb]uild/
+[Bb]uilds/
+[Ll]ogs/
+[Uu]ser[Ss]ettings/
+[Mm]emoryCaptures/
+[Rr]ecordings/
+
+# ── Asset meta files (keep for version control) ─────
+# !/Assets/**/*.meta  ← Do NOT ignore meta files!
+
+# ── Unity crash dumps ────────────────────────────────
+sysinfo.txt
+*.stackdump
+
+# ── Visual Studio ────────────────────────────────────
+.vs/
+*.csproj
+*.unityproj
+*.sln
+*.suo
+*.tmp
+*.user
+*.userprefs
+*.pidb
+*.booproj
+
+# ── Rider IDE ────────────────────────────────────────
+.idea/
+*.riderSolution.xml
+*.DotSettings.user
+
+# ── VSCode ───────────────────────────────────────────
+.vscode/
+!.vscode/extensions.json
+!.vscode/settings.json
+
+# ── JetBrains ────────────────────────────────────────
+*.iml
+modules.xml
+*.ipr
+*.iws
+
+# ── OS Generated ─────────────────────────────────────
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+Desktop.ini
+
+# ── Build Artifacts ──────────────────────────────────
+*.apk
+*.aab
+*.ipa
+*.exe
+*.x86
+*.x86_64
+*.xr
+
+# ── Unity Package Manager ────────────────────────────
+/[Pp]ackages/manifest.json.lock
+/[Pp]ackages/packages-lock.json
+
+# ── Crash Reports ────────────────────────────────────
+crashlytics-build.properties
+
+# ── Firebase (credentials — NEVER commit these!) ─────
+google-services.json
+GoogleService-Info.plist
+firebase-credentials.json
+serviceAccountKey.json
+.env
+.env.*
+secrets/
+**/secrets/**
+
+# ── Analytics Config secrets ─────────────────────────
+# Uncomment nếu bạn không muốn commit API key:
+# Assets/Resources/AnalyticsConfig.asset
+
+# ── Unity Collaborate ────────────────────────────────
+.collabignore
+/[Uu]nity[Cc]loud[Bb]uild
+
+# ── Burst / IL2CPP ───────────────────────────────────
+BurstDebugInformation_DoNotShip/
+il2cpp/
+Il2CppBuildDirectory/
+
+# ── StreamingAssets large files (use LFS instead) ────
+# Assets/StreamingAssets/**/*.mp4
+# Assets/StreamingAssets/**/*.mp3
+
+# ── Node (nếu có tools phụ) ─────────────────────────
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# ── Python ───────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.pyo
+.venv/
+
+# ── Misc ─────────────────────────────────────────────
+*.log
+*.backup
+*.bak
+*~
