@@ -172,6 +172,14 @@ namespace GameHub.Analytics
         public void LogCompleteMission(string missionId, float playTime,
                                        Dictionary<string, object> extraData = null)
         {
+            // Nếu bật chế độ chỉ gửi trên mobile/giả lập và đang chạy trong Unity Editor -> Bỏ qua gửi Firebase
+            if (_config != null && _config.mobileOnlyForWinLose && Application.isEditor)
+            {
+                if (_config.enableDebugLog)
+                    Debug.Log($"<color=#FF9800>[Analytics]</color> ℹ️ [Platform Filter] Bỏ qua gửi sự kiện THẮNG (Complete) '{missionId}' lên Firebase vì đang chạy trong Unity Editor (chỉ gửi trên thiết bị mobile thật hoặc máy giả lập).");
+                return;
+            }
+
             var evt = CreateEvent("complete_mission", missionId);
             evt.playTime = playTime;
             if (extraData != null) evt.customData = extraData;
@@ -186,6 +194,14 @@ namespace GameHub.Analytics
         public void LogFailMission(string missionId, float playTime,
                                    Dictionary<string, object> extraData = null)
         {
+            // Nếu bật chế độ chỉ gửi trên mobile/giả lập và đang chạy trong Unity Editor -> Bỏ qua gửi Firebase
+            if (_config != null && _config.mobileOnlyForWinLose && Application.isEditor)
+            {
+                if (_config.enableDebugLog)
+                    Debug.Log($"<color=#FF9800>[Analytics]</color> ℹ️ [Platform Filter] Bỏ qua gửi sự kiện THUA (Fail) '{missionId}' lên Firebase vì đang chạy trong Unity Editor (chỉ gửi trên thiết bị mobile thật hoặc máy giả lập).");
+                return;
+            }
+
             var evt = CreateEvent("fail_mission", missionId);
             evt.playTime = playTime;
             if (extraData != null) evt.customData = extraData;
@@ -296,6 +312,9 @@ namespace GameHub.Analytics
 
         /// <summary>Số event đang chờ trong offline queue.</summary>
         public int PendingQueueCount => _queue?.Count ?? 0;
+
+        /// <summary>Cấu hình AnalyticsConfig đang được sử dụng.</summary>
+        public AnalyticsConfig Config => _config;
 
         /// <summary>Kiểm tra xem AnalyticsManager đã được khởi tạo thành công chưa.</summary>
         public bool IsInitialized => _initialized;

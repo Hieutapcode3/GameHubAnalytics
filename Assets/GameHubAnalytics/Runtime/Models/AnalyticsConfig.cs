@@ -54,8 +54,34 @@ namespace GameHub.Analytics
         public float requestTimeoutSeconds = 10f;
 
         // ─────────────────────────────────────────────────────────
+        //  Platform Filter Settings
+        // ─────────────────────────────────────────────────────────
+
+        [Header("Platform Filter")]
+        [Tooltip("Chỉ gửi sự kiện Thắng/Thua (Complete/Fail) lên Firebase khi chạy trên thiết bị di động thật hoặc máy giả lập (Bỏ qua khi chạy trong Unity Editor).")]
+        public bool mobileOnlyForWinLose = true;
+
+        // ─────────────────────────────────────────────────────────
         //  Computed Properties (Auto-Trimmed to prevent space errors)
         // ─────────────────────────────────────────────────────────
+
+        /// <summary>
+        /// Kiểm tra xem ứng dụng hiện tại có đang chạy trên thiết bị di động thật hoặc máy giả lập (Android, iOS) hay không.
+        /// Luôn trả về false khi đang chạy trong Unity Editor.
+        /// </summary>
+        public static bool IsMobileOrEmulator
+        {
+            get
+            {
+#if UNITY_EDITOR
+                return false;
+#else
+                return Application.isMobilePlatform ||
+                       Application.platform == RuntimePlatform.Android ||
+                       Application.platform == RuntimePlatform.IPhonePlayer;
+#endif
+            }
+        }
 
         public string CleanProjectId => projectId?.Trim() ?? "";
         public string CleanApiKey    => apiKey?.Trim() ?? "";

@@ -115,7 +115,7 @@ namespace GamePlay
         }
 
         /// <summary>
-        /// Bấm nút Thắng (Win) -> Bắn event hoàn thành lên Firestore -> Hiện Panel Win.
+        /// Bấm nút Thắng (Win) -> Bắn event hoàn thành lên Firestore (nếu trên Mobile/Giả lập) -> Hiện Panel Win.
         /// </summary>
         public void WinLevel()
         {
@@ -125,27 +125,41 @@ namespace GamePlay
             string mId = MissionId;
             float finalTime = playTime;
 
-            lastStatusMessage = $"🎉 CHIẾN THẮNG {mId} ({finalTime:F1}s)";
+            bool isEditor = Application.isEditor;
+            bool mobileOnly = AnalyticsManager.Instance != null && AnalyticsManager.Instance.Config != null && AnalyticsManager.Instance.Config.mobileOnlyForWinLose;
+            bool skippedFirebase = isEditor && mobileOnly;
 
-            // Bắn event thắng lên Firebase
+            if (skippedFirebase)
+            {
+                lastStatusMessage = $"🎉 THẮNG {mId} ({finalTime:F1}s) [Unity Editor: Bỏ qua Firebase]";
+            }
+            else
+            {
+                lastStatusMessage = $"🎉 CHIẾN THẮNG {mId} ({finalTime:F1}s) -> Đang gửi Firebase";
+            }
+
+            // Bắn event thắng lên Firebase (tự động bỏ qua nếu là Editor và mobileOnlyForWinLose = true)
             if (AnalyticsManager.Instance != null)
             {
                 AnalyticsManager.Instance.LogCompleteMission(mId, finalTime);
 
-                // Cập nhật lại stats sau khi ghi
-                AnalyticsManager.Instance.GetPlayerMissionStats(mId, stats =>
+                // Cập nhật lại stats sau khi ghi (nếu không skip)
+                if (!skippedFirebase)
                 {
-                    CurrentStats = stats;
-                    OnStatsUpdated?.Invoke(stats);
-                });
+                    AnalyticsManager.Instance.GetPlayerMissionStats(mId, stats =>
+                    {
+                        CurrentStats = stats;
+                        OnStatsUpdated?.Invoke(stats);
+                    });
+                }
             }
 
             OnLevelWon?.Invoke(finalTime);
-            Debug.Log($"<color=#4EFC85>[GamePlay]</color> 🏆 Hoàn thành: <b>{mId}</b> - Thời gian: {finalTime:F1}s");
+            Debug.Log($"<color=#4EFC85>[GamePlay]</color> 🏆 Hoàn thành: <b>{mId}</b> - Thời gian: {finalTime:F1}s {(skippedFirebase ? "(Unity Editor: Bỏ qua gửi Firebase theo cấu hình)" : "(Gửi lên Firebase)")}");
         }
 
         /// <summary>
-        /// Bấm nút Thua (Lose) -> Bắn event thất bại lên Firestore -> Hiện Panel Lose.
+        /// Bấm nút Thua (Lose) -> Bắn event thất bại lên Firestore (nếu trên Mobile/Giả lập) -> Hiện Panel Lose.
         /// </summary>
         public void LoseLevel()
         {
@@ -155,23 +169,37 @@ namespace GamePlay
             string mId = MissionId;
             float finalTime = playTime;
 
-            lastStatusMessage = $"💀 THẤT BẠI {mId} ({finalTime:F1}s)";
+            bool isEditor = Application.isEditor;
+            bool mobileOnly = AnalyticsManager.Instance != null && AnalyticsManager.Instance.Config != null && AnalyticsManager.Instance.Config.mobileOnlyForWinLose;
+            bool skippedFirebase = isEditor && mobileOnly;
 
-            // Bắn event thua lên Firebase
+            if (skippedFirebase)
+            {
+                lastStatusMessage = $"💀 THUA {mId} ({finalTime:F1}s) [Unity Editor: Bỏ qua Firebase]";
+            }
+            else
+            {
+                lastStatusMessage = $"💀 THẤT BẠI {mId} ({finalTime:F1}s) -> Đang gửi Firebase";
+            }
+
+            // Bắn event thua lên Firebase (tự động bỏ qua nếu là Editor và mobileOnlyForWinLose = true)
             if (AnalyticsManager.Instance != null)
             {
                 AnalyticsManager.Instance.LogFailMission(mId, finalTime);
 
-                // Cập nhật lại stats sau khi ghi
-                AnalyticsManager.Instance.GetPlayerMissionStats(mId, stats =>
+                // Cập nhật lại stats sau khi ghi (nếu không skip)
+                if (!skippedFirebase)
                 {
-                    CurrentStats = stats;
-                    OnStatsUpdated?.Invoke(stats);
-                });
+                    AnalyticsManager.Instance.GetPlayerMissionStats(mId, stats =>
+                    {
+                        CurrentStats = stats;
+                        OnStatsUpdated?.Invoke(stats);
+                    });
+                }
             }
 
             OnLevelLost?.Invoke(finalTime);
-            Debug.Log($"<color=#FF5252>[GamePlay]</color> ❌ Thất bại: <b>{mId}</b> - Thời gian: {finalTime:F1}s");
+            Debug.Log($"<color=#FF5252>[GamePlay]</color> ❌ Thất bại: <b>{mId}</b> - Thời gian: {finalTime:F1}s {(skippedFirebase ? "(Unity Editor: Bỏ qua gửi Firebase theo cấu hình)" : "(Gửi lên Firebase)")}");
         }
 
         /// <summary>

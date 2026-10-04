@@ -245,7 +245,15 @@ namespace GamePlay
             }
             else
             {
-                GUILayout.Label("⏳ Đang đồng bộ số liệu từ Firebase Firestore...", _miniLabelStyle);
+                bool isEditorFilter = Application.isEditor && (AnalyticsManager.Instance?.Config?.mobileOnlyForWinLose ?? true);
+                if (isEditorFilter)
+                {
+                    GUILayout.Label("<color=#FFB74D>⚡ Unity Editor: Thắng/Thua được giữ nội bộ (Chỉ gửi Firebase trên Mobile/Giả lập)</color>", _miniLabelStyle);
+                }
+                else
+                {
+                    GUILayout.Label("⏳ Đang đồng bộ số liệu từ Firebase Firestore...", _miniLabelStyle);
+                }
             }
             GUILayout.Space(6);
             GUILayout.EndVertical();
@@ -312,9 +320,14 @@ namespace GamePlay
             string playerId = AnalyticsManager.Instance != null ? AnalyticsManager.Instance.GetPlayerId() : "Chưa khởi tạo";
             int queueCount  = AnalyticsManager.Instance != null ? AnalyticsManager.Instance.PendingQueueCount : 0;
 
-            GUI.color = new Color(0.4f, 1f, 0.6f);
-            GUILayout.Label($"🔥 Firebase Device ID: {playerId}", _miniLabelStyle);
+            bool isEditor = Application.isEditor;
+            bool filterOn = AnalyticsManager.Instance != null && AnalyticsManager.Instance.Config != null && AnalyticsManager.Instance.Config.mobileOnlyForWinLose;
+            string platformTag = isEditor 
+                ? (filterOn ? "<color=#FFA726>[Editor: Win/Lose Firebase OFF]</color>" : "<color=#42A5F5>[Editor: Live]</color>")
+                : "<color=#66BB6A>[Mobile/Emulator: Live Firebase]</color>";
+
             GUI.color = Color.white;
+            GUILayout.Label($"🔥 Device: {playerId}  {platformTag}", _miniLabelStyle);
 
             GUILayout.Label($"📦 Offline Queue: {queueCount} | {_manager.LastStatusMessage}", _miniLabelStyle);
 

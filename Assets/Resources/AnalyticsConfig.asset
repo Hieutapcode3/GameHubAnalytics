@@ -20,3 +20,4 @@ MonoBehaviour:
   maxQueueSize: 100
   retryIntervalSeconds: 30
   requestTimeoutSeconds: 10
+  mobileOnlyForWinLose: 1
