@@ -514,6 +514,7 @@ namespace GameHub.Analytics.Editor
 
         private void FetchRealFirestoreData()
         {
+            LoadConfig();
             if (_config == null || !_config.IsValid)
             {
                 _statusMsg = "❌ Cấu hình Firebase chưa đầy đủ (thiếu apiKey hoặc projectId).";
@@ -527,7 +528,7 @@ namespace GameHub.Analytics.Editor
             Repaint();
 
             // Run collectionGroup query for missions
-            string url = $"{_config.FirestoreBaseUrl}:runQuery?key={_config.apiKey}";
+            string url = $"{_config.FirestoreBaseUrl}:runQuery?key={_config.CleanApiKey}";
             string bodyMissions = "{\"structuredQuery\":{\"from\":[{\"collectionId\":\"missions\",\"allDescendants\":true}]}}";
 
             var request = new UnityWebRequest(url, "POST");
@@ -559,7 +560,7 @@ namespace GameHub.Analytics.Editor
 
         private void FetchRealEvents()
         {
-            string url = $"{_config.FirestoreBaseUrl}:runQuery?key={_config.apiKey}";
+            string url = $"{_config.FirestoreBaseUrl}:runQuery?key={_config.CleanApiKey}";
             string bodyEvents = "{\"structuredQuery\":{\"from\":[{\"collectionId\":\"events\",\"allDescendants\":true}],\"limit\":200}}";
 
             var request = new UnityWebRequest(url, "POST");
@@ -601,7 +602,7 @@ namespace GameHub.Analytics.Editor
                 string docBlock = nextDoc > 0 ? json.Substring(docIdx, nextDoc - docIdx) : json.Substring(docIdx);
                 searchIdx = docIdx + 11;
 
-                string docName = ExtractJsonString(docBlock, "name");
+                string docName = ExtractDocName(docBlock);
                 if (string.IsNullOrEmpty(docName)) continue;
 
                 // Format: projects/.../databases/(default)/documents/players/{playerId}/missions/{missionId}
@@ -627,8 +628,11 @@ namespace GameHub.Analytics.Editor
                     failed        = ExtractInt(docBlock, "failed"),
                     bestTime      = ExtractFloat(docBlock, "bestTime"),
                     totalPlayTime = ExtractFloat(docBlock, "totalPlayTime"),
-                    lastPlayed    = ExtractJsonString(docBlock, "lastPlayed")
+                    lastPlayed    = ExtractFieldValue(docBlock, "lastPlayed")
                 };
+                if (string.IsNullOrEmpty(pRow.lastPlayed))
+                    pRow.lastPlayed = ExtractFieldValue(docBlock, "lastPlayed_str");
+
                 _playerRows.Add(pRow);
 
                 // Aggregate into MissionRow
@@ -668,18 +672,18 @@ namespace GameHub.Analytics.Editor
                 string docBlock = nextDoc > 0 ? json.Substring(docIdx, nextDoc - docIdx) : json.Substring(docIdx);
                 searchIdx = docIdx + 11;
 
-                string eventType = ExtractJsonString(docBlock, "eventType");
+                string eventType = ExtractFieldValue(docBlock, "eventType");
                 if (string.IsNullOrEmpty(eventType)) continue;
 
                 var ev = new EventRow
                 {
                     eventType   = eventType,
-                    missionId   = ExtractJsonString(docBlock, "missionId"),
-                    playerId    = ExtractJsonString(docBlock, "playerId"),
-                    timestamp   = ExtractJsonString(docBlock, "timestamp"),
+                    missionId   = ExtractFieldValue(docBlock, "missionId"),
+                    playerId    = ExtractFieldValue(docBlock, "playerId"),
+                    timestamp   = ExtractFieldValue(docBlock, "timestamp"),
                     playTime    = ExtractFloat(docBlock, "playTime"),
-                    platform    = ExtractJsonString(docBlock, "platform"),
-                    deviceModel = ExtractJsonString(docBlock, "deviceModel")
+                    platform    = ExtractFieldValue(docBlock, "platform"),
+                    deviceModel = ExtractFieldValue(docBlock, "deviceModel")
                 };
                 _eventRows.Add(ev);
             }
@@ -934,58 +938,72 @@ namespace GameHub.Analytics.Editor
         //  JSON Extraction Utilities
         // ─────────────────────────────────────────────────────────
 
-        private static string ExtractJsonString(string block, string field)
+        private static string ExtractDocName(string docBlock)
         {
-            string pattern = $"\"{field}\":{{\"stringValue\":\"";
-            int idx = block.IndexOf(pattern, StringComparison.Ordinal);
-            if (idx >= 0)
-            {
-                idx += pattern.Length;
-                int end = block.IndexOf("\"", idx, StringComparison.Ordinal);
-                if (end > idx) return block.Substring(idx, end - idx);
-            }
+            int idx = docBlock.IndexOf("\"name\"", StringComparison.Ordinal);
+            if (idx < 0) return "";
+            int colon = docBlock.IndexOf(':', idx + 6);
+            if (colon < 0) return "";
+            int q1 = docBlock.IndexOf('"', colon + 1);
+            if (q1 < 0) return "";
+            int q2 = docBlock.IndexOf('"', q1 + 1);
+            if (q2 < 0) return "";
+            return docBlock.Substring(q1 + 1, q2 - q1 - 1);
+        }
 
-            // Fallback: simple string "field":"value"
-            string simple = $"\"{field}\":\"";
-            int sIdx = block.IndexOf(simple, StringComparison.Ordinal);
-            if (sIdx >= 0)
+        private static string ExtractFieldValue(string docBlock, string fieldName)
+        {
+            int fIdx = docBlock.IndexOf($"\"{fieldName}\"", StringComparison.Ordinal);
+            if (fIdx < 0) return "";
+
+            int searchLen = Mathf.Min(350, docBlock.Length - fIdx);
+            string sub = docBlock.Substring(fIdx, searchLen);
+
+            string[] tags = { "\"stringValue\"", "\"integerValue\"", "\"timestampValue\"", "\"doubleValue\"" };
+            foreach (var tag in tags)
             {
-                sIdx += simple.Length;
-                int end = block.IndexOf("\"", sIdx, StringComparison.Ordinal);
-                if (end > sIdx) return block.Substring(sIdx, end - sIdx);
+                int tIdx = sub.IndexOf(tag, StringComparison.Ordinal);
+                if (tIdx >= 0)
+                {
+                    int colon = sub.IndexOf(':', tIdx + tag.Length);
+                    if (colon < 0) continue;
+
+                    int q1 = sub.IndexOf('"', colon + 1);
+                    int brace = -1;
+                    char[] delims = { '}', ',', '\n', '\r' };
+                    int dIdx = sub.IndexOfAny(delims, colon + 1);
+                    if (dIdx >= 0) brace = dIdx;
+
+                    if (q1 >= 0 && (brace < 0 || q1 < brace))
+                    {
+                        int q2 = sub.IndexOf('"', q1 + 1);
+                        if (q2 > q1) return sub.Substring(q1 + 1, q2 - q1 - 1);
+                    }
+                    else if (brace > colon)
+                    {
+                        return sub.Substring(colon + 1, brace - colon - 1).Trim();
+                    }
+                }
             }
 
             return "";
         }
 
+        private static string ExtractJsonString(string block, string field)
+        {
+            return ExtractFieldValue(block, field);
+        }
+
         private static int ExtractInt(string block, string field)
         {
-            string pattern = $"\"{field}\":{{\"integerValue\":\"";
-            int idx = block.IndexOf(pattern, StringComparison.Ordinal);
-            if (idx >= 0)
-            {
-                idx += pattern.Length;
-                int end = block.IndexOf("\"", idx, StringComparison.Ordinal);
-                if (end > idx && int.TryParse(block.Substring(idx, end - idx), out int v))
-                    return v;
-            }
-            return 0;
+            string val = ExtractFieldValue(block, field);
+            return int.TryParse(val, out int res) ? res : 0;
         }
 
         private static float ExtractFloat(string block, string field)
         {
-            string pattern = $"\"{field}\":{{\"doubleValue\":";
-            int idx = block.IndexOf(pattern, StringComparison.Ordinal);
-            if (idx >= 0)
-            {
-                idx += pattern.Length;
-                int end = block.IndexOfAny(new[] { ',', '}', ' ' }, idx);
-                if (end > idx && float.TryParse(block.Substring(idx, end - idx), NumberStyles.Float, CultureInfo.InvariantCulture, out float v))
-                    return v;
-            }
-
-            // Fallback to integerValue if saved as integer
-            return ExtractInt(block, field);
+            string val = ExtractFieldValue(block, field);
+            return float.TryParse(val, NumberStyles.Float, CultureInfo.InvariantCulture, out float res) ? res : 0f;
         }
 
         private static string ExtractBetween(string source, string startPattern, string endPattern)
