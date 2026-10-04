@@ -13,6 +13,7 @@
 [Uu]ser[Ss]ettings/
 [Mm]emoryCaptures/
 [Rr]ecordings/
+.utmp/
 
 # ── Asset meta files (keep for version control) ─────
 # !/Assets/**/*.meta  ← Do NOT ignore meta files!
@@ -26,6 +27,7 @@ sysinfo.txt
 *.csproj
 *.unityproj
 *.sln
+*.slnx
 *.suo
 *.tmp
 *.user
