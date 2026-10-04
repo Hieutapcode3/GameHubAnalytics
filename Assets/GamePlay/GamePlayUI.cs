@@ -4,34 +4,45 @@ using GameHub.Analytics;
 namespace GamePlay
 {
     /// <summary>
-    /// Giao diện điều khiển Gameplay & Test Analytics trực quan:
-    ///   - HUD: Xem Level hiện tại, Đồng hồ đếm thời gian, Chọn Level nhanh.
-    ///   - Action Buttons: Nút WIN và LOSE để test bắn event.
-    ///   - Result Panel (Win/Lose Modal): Bật lên khi thắng hoặc thua, hiển thị stats, nút Next và Restart.
-    ///   - Thống kê thời gian thực từ Firebase Firestore (Win Rate %, Kỷ lục...).
+    /// Giao diện điều khiển Gameplay & Test Analytics được tối ưu 100% cho màn hình dọc (Portrait Mobile):
+    ///   - Hệ thống Canvas ảo tỉ lệ chuẩn màn dọc (Reference Width = 640px) tự động co giãn trên mọi độ phân giải.
+    ///   - HUD: Xem Level hiện tại, Đồng hồ đếm giây, Lưới nút chọn màn 1-6 xếp 2 dòng gọn gàng.
+    ///   - Action Buttons: Nút WIN và LOSE to bản xếp dọc, tối ưu cho thao tác bấm 1 ngón tay trên điện thoại.
+    ///   - Result Panel (Win/Lose Modal): Popup canh giữa màn hình dọc với thống kê Firebase và các nút Next/Restart.
+    ///   - Bottom Status Bar: Hiển thị ID máy test và trạng thái gửi dữ liệu Firestore.
     /// </summary>
     [RequireComponent(typeof(LevelManager))]
     public class GamePlayUI : MonoBehaviour
     {
         private LevelManager _manager;
 
-        // Tùy chỉnh hiển thị
-        [Header("UI Scale")]
+        [Header("Tùy Chỉnh Kích Thước")]
+        [Tooltip("Hệ số phóng to/thu nhỏ giao diện")]
         [SerializeField] private float uiScale = 1.0f;
+
+        // Texture nền mờ cho popup
+        private Texture2D _backdropTex;
 
         // Styles cache
         private bool _stylesReady = false;
         private GUIStyle _hudBoxStyle;
         private GUIStyle _levelTitleStyle;
         private GUIStyle _timerStyle;
+        private GUIStyle _sectionHeaderStyle;
+        private GUIStyle _levelSelectBtnStyle;
         private GUIStyle _winButtonStyle;
         private GUIStyle _loseButtonStyle;
+        private GUIStyle _restartButtonStyle;
         private GUIStyle _panelBgStyle;
         private GUIStyle _panelTitleWinStyle;
         private GUIStyle _panelTitleLoseStyle;
-        private GUIStyle _actionButtonStyle;
+        private GUIStyle _actionButtonGreen;
+        private GUIStyle _actionButtonYellow;
+        private GUIStyle _actionButtonRed;
+        private GUIStyle _actionButtonGrey;
         private GUIStyle _statsLabelStyle;
         private GUIStyle _miniLabelStyle;
+        private GUIStyle _statusBoxStyle;
 
         private void Awake()
         {
@@ -45,233 +56,275 @@ namespace GamePlay
 
             InitStyles();
 
-            // Lưu ma trận GUI cũ và áp dụng scale nếu màn hình lớn/nhỏ
-            var oldMatrix = GUI.matrix;
-            float factor = (Screen.width < 800 ? Screen.width / 800f : 1f) * Mathf.Max(0.5f, uiScale);
-            if (Mathf.Abs(factor - 1f) > 0.01f)
-            {
-                GUI.matrix = Matrix4x4.TRS(Vector3.zero, Quaternion.identity, new Vector3(factor, factor, 1f));
-            }
+            // ── Tự động tính toán ma trận tỉ lệ theo màn hình dọc (Reference Width = 640px) ──
+            float refWidth = 640f;
+            float scale = (Screen.width / refWidth) * Mathf.Max(0.5f, uiScale);
 
-            // 1. HUD Trên cùng
-            DrawTopHUD();
+            var oldMatrix = GUI.matrix;
+            GUI.matrix = Matrix4x4.TRS(Vector3.zero, Quaternion.identity, new Vector3(scale, scale, 1f));
+
+            float virtualW = refWidth;
+            float virtualH = Screen.height / scale;
+
+            // 1. HUD trên cùng
+            DrawTopHUD(virtualW, virtualH);
 
             // 2. Các nút Gameplay chính (Win / Lose) khi đang chơi
             if (_manager.State == LevelState.Playing)
             {
-                DrawGameplayButtons();
+                DrawGameplayButtons(virtualW, virtualH);
             }
 
             // 3. Panel Kết Quả (Popup khi Thắng hoặc Thua)
             if (_manager.State == LevelState.Won || _manager.State == LevelState.Lost)
             {
-                DrawResultPanel();
+                DrawResultPanel(virtualW, virtualH);
             }
 
-            // 4. Thanh trạng thái Analytics ở đáy màn hình
-            DrawBottomStatusBar();
+            // 4. Thanh trạng thái ở đáy màn hình
+            DrawBottomStatusBar(virtualW, virtualH);
 
             GUI.matrix = oldMatrix;
         }
 
-        private void DrawTopHUD()
+        // ─────────────────────────────────────────────────────────
+        //  1. Top HUD (Màn Dọc)
+        // ─────────────────────────────────────────────────────────
+
+        private void DrawTopHUD(float virtualW, float virtualH)
         {
-            float screenW = Screen.width < 800 ? 800 : Screen.width;
+            float pad = 20f;
+            float hudW = virtualW - (pad * 2f);
+            float hudH = 220f;
 
-            // Khung Header
-            GUILayout.BeginArea(new Rect(15, 15, screenW - 30, 110), _hudBoxStyle);
-            GUILayout.BeginHorizontal();
-
-            // Thông tin Level & Timer
-            GUILayout.BeginVertical(GUILayout.Width(260));
-            GUILayout.Label($"🎮 MÀN CHƠI: LEVEL {_manager.CurrentLevel:D2}", _levelTitleStyle);
-            GUILayout.Label($"⏱️ Thời gian chơi: {_manager.PlayTime:F1}s", _timerStyle);
-            GUILayout.EndVertical();
-
-            // Level Selector nhanh (Level 1 .. 5)
+            GUILayout.BeginArea(new Rect(pad, 20f, hudW, hudH), _hudBoxStyle);
             GUILayout.BeginVertical();
-            GUILayout.Label("Chọn màn chơi nhanh:", _miniLabelStyle);
+
+            // Tiêu đề Level to rõ ràng
+            GUILayout.Label($"🎮 MÀN CHƠI: LEVEL {_manager.CurrentLevel:D2}", _levelTitleStyle);
+            GUILayout.Label($"⏱️ Thời gian: {_manager.PlayTime:F1}s", _timerStyle);
+
+            GUILayout.Space(8);
+            GUILayout.Label("Chọn màn chơi nhanh:", _sectionHeaderStyle);
+
+            // Lưới chọn màn chơi: 2 hàng x 3 cột (tối ưu cho chiều rộng màn hình dọc)
+            float btnW = (hudW - 40f) / 3f;
+            float btnH = 40f;
+
+            // Hàng 1: Màn 1, 2, 3
             GUILayout.BeginHorizontal();
-            for (int i = 1; i <= 6; i++)
-            {
-                bool isCurrent = _manager.CurrentLevel == i;
-                GUI.backgroundColor = isCurrent ? new Color(0.3f, 0.8f, 1f) : Color.white;
-                if (GUILayout.Button($"Màn {i}", GUILayout.Height(32), GUILayout.Width(75)))
-                {
-                    _manager.LoadLevel(i);
-                }
-            }
-            GUI.backgroundColor = Color.white;
+            for (int i = 1; i <= 3; i++)
+                DrawLevelButton(i, btnW, btnH);
             GUILayout.EndHorizontal();
+
+            GUILayout.Space(4);
+
+            // Hàng 2: Màn 4, 5, 6
+            GUILayout.BeginHorizontal();
+            for (int i = 4; i <= 6; i++)
+                DrawLevelButton(i, btnW, btnH);
+            GUILayout.EndHorizontal();
+
             GUILayout.EndVertical();
-
-            // Nút Restart nhanh trên HUD
-            GUILayout.FlexibleSpace();
-            GUI.backgroundColor = new Color(1f, 0.85f, 0.4f);
-            if (GUILayout.Button("🔄 Restart", GUILayout.Height(50), GUILayout.Width(90)))
-            {
-                _manager.RestartLevel();
-            }
-            GUI.backgroundColor = Color.white;
-
-            GUILayout.EndHorizontal();
             GUILayout.EndArea();
         }
 
-        private void DrawGameplayButtons()
+        private void DrawLevelButton(int level, float width, float height)
         {
-            float screenW = Screen.width < 800 ? 800 : Screen.width;
-            float screenH = Screen.height < 600 ? 600 : Screen.height;
+            bool isCurrent = _manager.CurrentLevel == level;
+            GUI.backgroundColor = isCurrent ? new Color(0.2f, 0.8f, 1f) : new Color(0.9f, 0.9f, 0.95f);
+            if (GUILayout.Button($"Màn {level}", _levelSelectBtnStyle, GUILayout.Width(width), GUILayout.Height(height)))
+            {
+                _manager.LoadLevel(level);
+            }
+            GUI.backgroundColor = Color.white;
+        }
 
-            float areaW = 540;
-            float areaH = 120;
-            float posX = (screenW - areaW) * 0.5f;
-            float posY = screenH * 0.45f;
+        // ─────────────────────────────────────────────────────────
+        //  2. Gameplay Buttons (Màn Dọc - Xếp Dọc Dễ Bấm Ngón Cái)
+        // ─────────────────────────────────────────────────────────
 
-            GUILayout.BeginArea(new Rect(posX, posY, areaW, areaH));
-            GUILayout.BeginHorizontal();
+        private void DrawGameplayButtons(float virtualW, float virtualH)
+        {
+            float pad = 25f;
+            float areaW = virtualW - (pad * 2f);
+            float areaH = 340f;
+            float posY = virtualH * 0.40f;
 
-            // Nút Thắng (Win)
-            GUI.backgroundColor = new Color(0.2f, 0.85f, 0.35f);
-            if (GUILayout.Button("🏆 BẤM ĐỂ THẮNG\n(WIN LEVEL)", _winButtonStyle, GUILayout.Width(255), GUILayout.Height(100)))
+            GUILayout.BeginArea(new Rect(pad, posY, areaW, areaH));
+            GUILayout.BeginVertical();
+
+            GUILayout.Label("CHỌN KẾT QUẢ ĐỂ BẮN EVENT LÊN FIREBASE:", _sectionHeaderStyle);
+            GUILayout.Space(12);
+
+            // Nút Thắng (Vivid Green) - To bản, nằm vừa tầm với ngón tay cái
+            GUI.backgroundColor = new Color(0.2f, 0.88f, 0.38f);
+            if (GUILayout.Button("🏆 BẤM ĐỂ THẮNG\n(WIN LEVEL)", _winButtonStyle, GUILayout.Height(95)))
             {
                 _manager.WinLevel();
             }
 
-            GUILayout.Space(25);
+            GUILayout.Space(16);
 
-            // Nút Thua (Lose)
-            GUI.backgroundColor = new Color(0.95f, 0.3f, 0.3f);
-            if (GUILayout.Button("💀 BẤM ĐỂ THUA\n(LOSE LEVEL)", _loseButtonStyle, GUILayout.Width(255), GUILayout.Height(100)))
+            // Nút Thua (Vivid Red)
+            GUI.backgroundColor = new Color(0.98f, 0.3f, 0.3f);
+            if (GUILayout.Button("💀 BẤM ĐỂ THUA\n(LOSE LEVEL)", _loseButtonStyle, GUILayout.Height(95)))
             {
                 _manager.LoseLevel();
             }
 
+            GUILayout.Space(14);
+
+            // Nút Chơi Lại (Restart)
+            GUI.backgroundColor = new Color(1f, 0.78f, 0.28f);
+            if (GUILayout.Button("🔄 CHƠI LẠI MÀN NÀY (RESTART)", _restartButtonStyle, GUILayout.Height(52)))
+            {
+                _manager.RestartLevel();
+            }
+
             GUI.backgroundColor = Color.white;
-            GUILayout.EndHorizontal();
+            GUILayout.EndVertical();
             GUILayout.EndArea();
         }
 
-        private void DrawResultPanel()
+        // ─────────────────────────────────────────────────────────
+        //  3. Result Panel Modal (Màn Dọc Canh Giữa)
+        // ─────────────────────────────────────────────────────────
+
+        private void DrawResultPanel(float virtualW, float virtualH)
         {
-            float screenW = Screen.width < 800 ? 800 : Screen.width;
-            float screenH = Screen.height < 600 ? 600 : Screen.height;
+            // Nền tối mờ toàn màn hình
+            if (_backdropTex == null)
+            {
+                _backdropTex = new Texture2D(1, 1);
+                _backdropTex.SetPixel(0, 0, new Color(0f, 0f, 0f, 0.82f));
+                _backdropTex.Apply();
+            }
+            GUI.DrawTexture(new Rect(0, 0, virtualW, virtualH), _backdropTex);
 
-            // Nền làm mờ toàn màn hình
-            GUI.Box(new Rect(0, 0, screenW, screenH), GUIContent.none);
-
-            // Khung Panel Modal
-            float panelW = 460;
-            float panelH = 340;
-            float posX = (screenW - panelW) * 0.5f;
-            float posY = (screenH - panelH) * 0.5f;
+            // Modal Card canh giữa
+            float panelW = virtualW - 50f;
+            float panelH = 500f;
+            float posX = 25f;
+            float posY = Mathf.Max(30f, (virtualH - panelH) * 0.5f);
 
             GUILayout.BeginArea(new Rect(posX, posY, panelW, panelH), _panelBgStyle);
             GUILayout.BeginVertical();
 
             bool isWon = _manager.State == LevelState.Won;
 
-            // Tiêu đề Panel
+            GUILayout.Space(10);
+
+            // Tiêu đề & Thông điệp
             if (isWon)
             {
                 GUILayout.Label("🎉 CHIẾN THẮNG!", _panelTitleWinStyle);
-                GUILayout.Label($"Bạn đã vượt qua {_manager.MissionId} thành công!", _statsLabelStyle);
+                GUILayout.Label($"Bạn đã vượt qua {_manager.MissionId} thành công!", _sectionHeaderStyle);
             }
             else
             {
                 GUILayout.Label("💀 THẤT BẠI!", _panelTitleLoseStyle);
-                GUILayout.Label($"Bạn đã bị hạ gục ở {_manager.MissionId}!", _statsLabelStyle);
+                GUILayout.Label($"Bạn đã bị hạ gục ở {_manager.MissionId}!", _sectionHeaderStyle);
             }
 
-            GUILayout.Space(12);
+            GUILayout.Space(14);
 
-            // Thống kê kết quả
+            // Khung Thống Kê Chi Tiết
             GUILayout.BeginVertical("box");
+            GUILayout.Space(6);
             GUILayout.Label($"⏱️ Thời gian màn này: <b>{_manager.PlayTime:F1} giây</b>", _statsLabelStyle);
+            GUILayout.Space(4);
 
             if (_manager.CurrentStats != null)
             {
                 var s = _manager.CurrentStats;
-                GUILayout.Label($"📊 Tỉ lệ thắng của bạn: <b>{s.WinRate:F1}%</b> (Thắng: {s.completed} | Thua: {s.failed})", _statsLabelStyle);
+                GUILayout.Label($"📊 Tỉ lệ thắng của bạn: <b>{s.WinRate:F1}%</b>", _statsLabelStyle);
+                GUILayout.Label($"🎯 Lịch sử: Thắng <b>{s.completed}</b> | Thua <b>{s.failed}</b> (Tổng: {s.started})", _statsLabelStyle);
                 if (s.bestTime > 0)
-                    GUILayout.Label($"⚡ Kỷ lục thời gian tốt nhất: <b>{s.bestTime:F1}s</b>", _statsLabelStyle);
+                    GUILayout.Label($"⚡ Kỷ lục nhanh nhất: <b>{s.bestTime:F1}s</b>", _statsLabelStyle);
             }
             else
             {
-                GUILayout.Label("⏳ Đang đồng bộ thống kê từ Firebase Firestore...", _miniLabelStyle);
+                GUILayout.Label("⏳ Đang đồng bộ số liệu từ Firebase Firestore...", _miniLabelStyle);
             }
+            GUILayout.Space(6);
             GUILayout.EndVertical();
 
-            GUILayout.Space(16);
+            GUILayout.Space(20);
 
-            // Các nút hành động Next / Restart
-            GUILayout.BeginHorizontal();
-
+            // Nút bấm hành động xếp dọc lớn để dễ ấn trên màn hình điện thoại
             if (isWon)
             {
-                // Nút Chơi Tiếp (Next Level)
-                GUI.backgroundColor = new Color(0.2f, 0.85f, 0.4f);
-                if (GUILayout.Button("▶️ MÀN TIẾP THEO", _actionButtonStyle, GUILayout.Height(52)))
+                // Nút Chơi Tiếp (Màn sau)
+                GUI.backgroundColor = new Color(0.2f, 0.88f, 0.38f);
+                if (GUILayout.Button("▶️ MÀN TIẾP THEO (NEXT LEVEL)", _actionButtonGreen, GUILayout.Height(65)))
                 {
                     _manager.NextLevel();
                 }
 
                 GUILayout.Space(10);
 
-                // Nút Chơi Lại (Restart)
+                // Nút Chơi Lại
                 GUI.backgroundColor = new Color(1f, 0.8f, 0.3f);
-                if (GUILayout.Button("🔄 CHƠI LẠI", _actionButtonStyle, GUILayout.Height(52)))
+                if (GUILayout.Button("🔄 CHƠI LẠI MÀN NÀY", _actionButtonYellow, GUILayout.Height(55)))
                 {
                     _manager.RestartLevel();
                 }
             }
             else
             {
-                // Nút Thử Lại (Restart)
-                GUI.backgroundColor = new Color(0.95f, 0.35f, 0.35f);
-                if (GUILayout.Button("🔄 THỬ LẠI MÀN NÀY", _actionButtonStyle, GUILayout.Height(52)))
+                // Nút Thử Lại
+                GUI.backgroundColor = new Color(0.98f, 0.35f, 0.35f);
+                if (GUILayout.Button("🔄 THỬ LẠI MÀN NÀY (RESTART)", _actionButtonRed, GUILayout.Height(65)))
                 {
                     _manager.RestartLevel();
                 }
 
                 GUILayout.Space(10);
 
-                // Nút Bỏ Qua (Skip to next)
-                GUI.backgroundColor = new Color(0.7f, 0.7f, 0.7f);
-                if (GUILayout.Button("⏭️ BỎ QUA", _actionButtonStyle, GUILayout.Height(52)))
+                // Nút Bỏ Qua
+                GUI.backgroundColor = new Color(0.7f, 0.72f, 0.78f);
+                if (GUILayout.Button("⏭️ BỎ QUA SANG MÀN TIẾP", _actionButtonGrey, GUILayout.Height(55)))
                 {
                     _manager.NextLevel();
                 }
             }
 
             GUI.backgroundColor = Color.white;
-            GUILayout.EndHorizontal();
+            GUILayout.EndVertical();
+            GUILayout.EndArea();
+        }
+
+        // ─────────────────────────────────────────────────────────
+        //  4. Bottom Status Bar (Màn Dọc)
+        // ─────────────────────────────────────────────────────────
+
+        private void DrawBottomStatusBar(float virtualW, float virtualH)
+        {
+            float pad = 20f;
+            float barW = virtualW - (pad * 2f);
+            float barH = 80f;
+            float posY = virtualH - barH - 15f;
+
+            GUILayout.BeginArea(new Rect(pad, posY, barW, barH), _statusBoxStyle);
+            GUILayout.BeginVertical();
+
+            string playerId = AnalyticsManager.Instance != null ? AnalyticsManager.Instance.GetPlayerId() : "Chưa khởi tạo";
+            int queueCount  = AnalyticsManager.Instance != null ? AnalyticsManager.Instance.PendingQueueCount : 0;
+
+            GUI.color = new Color(0.4f, 1f, 0.6f);
+            GUILayout.Label($"🔥 Firebase Device ID: {playerId}", _miniLabelStyle);
+            GUI.color = Color.white;
+
+            GUILayout.Label($"📦 Offline Queue: {queueCount} | {_manager.LastStatusMessage}", _miniLabelStyle);
 
             GUILayout.EndVertical();
             GUILayout.EndArea();
         }
 
-        private void DrawBottomStatusBar()
-        {
-            float screenW = Screen.width < 800 ? 800 : Screen.width;
-            float screenH = Screen.height < 600 ? 600 : Screen.height;
-
-            string playerId = AnalyticsManager.Instance != null ? AnalyticsManager.Instance.GetPlayerId() : "Chưa khởi tạo";
-            int queueCount  = AnalyticsManager.Instance != null ? AnalyticsManager.Instance.PendingQueueCount : 0;
-
-            GUILayout.BeginArea(new Rect(15, screenH - 45, screenW - 30, 35), "box");
-            GUILayout.BeginHorizontal();
-
-            GUI.color = new Color(0.4f, 1f, 0.6f);
-            GUILayout.Label($"🔥 Firebase Player: {playerId}", _miniLabelStyle);
-            GUI.color = Color.white;
-
-            GUILayout.FlexibleSpace();
-            GUILayout.Label($"Hàng đợi offline: {queueCount} | Trạng thái: {_manager.LastStatusMessage}", _miniLabelStyle);
-
-            GUILayout.EndHorizontal();
-            GUILayout.EndArea();
-        }
+        // ─────────────────────────────────────────────────────────
+        //  Styles Initialization
+        // ─────────────────────────────────────────────────────────
 
         private void InitStyles()
         {
@@ -279,76 +332,127 @@ namespace GamePlay
 
             _hudBoxStyle = new GUIStyle("box")
             {
-                padding = new RectOffset(15, 15, 12, 12)
+                padding = new RectOffset(16, 16, 14, 14)
+            };
+
+            _statusBoxStyle = new GUIStyle("box")
+            {
+                padding = new RectOffset(14, 14, 10, 10)
             };
 
             _levelTitleStyle = new GUIStyle(GUI.skin.label)
             {
-                fontSize = 18,
+                fontSize  = 22,
                 fontStyle = FontStyle.Bold,
-                normal = { textColor = Color.white }
+                alignment = TextAnchor.MiddleCenter,
+                normal    = { textColor = Color.white }
             };
 
             _timerStyle = new GUIStyle(GUI.skin.label)
             {
-                fontSize = 14,
+                fontSize  = 16,
                 fontStyle = FontStyle.Bold,
-                normal = { textColor = new Color(0.4f, 1f, 0.7f) }
+                alignment = TextAnchor.MiddleCenter,
+                normal    = { textColor = new Color(0.35f, 1f, 0.75f) }
+            };
+
+            _sectionHeaderStyle = new GUIStyle(GUI.skin.label)
+            {
+                fontSize  = 13,
+                fontStyle = FontStyle.Bold,
+                alignment = TextAnchor.MiddleCenter,
+                normal    = { textColor = new Color(0.85f, 0.88f, 0.95f) }
+            };
+
+            _levelSelectBtnStyle = new GUIStyle("button")
+            {
+                fontSize  = 13,
+                fontStyle = FontStyle.Bold,
+                alignment = TextAnchor.MiddleCenter
             };
 
             _winButtonStyle = new GUIStyle("button")
             {
-                fontSize = 16,
+                fontSize  = 19,
                 fontStyle = FontStyle.Bold,
                 alignment = TextAnchor.MiddleCenter
             };
 
             _loseButtonStyle = new GUIStyle("button")
             {
-                fontSize = 16,
+                fontSize  = 19,
+                fontStyle = FontStyle.Bold,
+                alignment = TextAnchor.MiddleCenter
+            };
+
+            _restartButtonStyle = new GUIStyle("button")
+            {
+                fontSize  = 15,
                 fontStyle = FontStyle.Bold,
                 alignment = TextAnchor.MiddleCenter
             };
 
             _panelBgStyle = new GUIStyle("box")
             {
-                padding = new RectOffset(25, 25, 20, 20)
+                padding = new RectOffset(24, 24, 20, 20)
             };
 
             _panelTitleWinStyle = new GUIStyle(GUI.skin.label)
             {
-                fontSize = 24,
+                fontSize  = 28,
                 fontStyle = FontStyle.Bold,
                 alignment = TextAnchor.MiddleCenter,
-                normal = { textColor = new Color(0.2f, 1f, 0.4f) }
+                normal    = { textColor = new Color(0.2f, 1f, 0.45f) }
             };
 
             _panelTitleLoseStyle = new GUIStyle(GUI.skin.label)
             {
-                fontSize = 24,
+                fontSize  = 28,
                 fontStyle = FontStyle.Bold,
                 alignment = TextAnchor.MiddleCenter,
-                normal = { textColor = new Color(1f, 0.3f, 0.3f) }
+                normal    = { textColor = new Color(1f, 0.32f, 0.32f) }
             };
 
-            _actionButtonStyle = new GUIStyle("button")
+            _actionButtonGreen = new GUIStyle("button")
             {
-                fontSize = 14,
+                fontSize  = 17,
+                fontStyle = FontStyle.Bold,
+                alignment = TextAnchor.MiddleCenter
+            };
+
+            _actionButtonYellow = new GUIStyle("button")
+            {
+                fontSize  = 15,
+                fontStyle = FontStyle.Bold,
+                alignment = TextAnchor.MiddleCenter
+            };
+
+            _actionButtonRed = new GUIStyle("button")
+            {
+                fontSize  = 17,
+                fontStyle = FontStyle.Bold,
+                alignment = TextAnchor.MiddleCenter
+            };
+
+            _actionButtonGrey = new GUIStyle("button")
+            {
+                fontSize  = 15,
                 fontStyle = FontStyle.Bold,
                 alignment = TextAnchor.MiddleCenter
             };
 
             _statsLabelStyle = new GUIStyle(GUI.skin.label)
             {
-                fontSize = 13,
-                richText = true,
-                normal = { textColor = Color.white }
+                fontSize  = 15,
+                richText  = true,
+                alignment = TextAnchor.MiddleLeft,
+                normal    = { textColor = Color.white }
             };
 
             _miniLabelStyle = new GUIStyle(GUI.skin.label)
             {
-                fontSize = 11,
-                normal = { textColor = new Color(0.8f, 0.8f, 0.8f) }
+                fontSize = 12,
+                normal   = { textColor = new Color(0.85f, 0.85f, 0.85f) }
             };
 
             _stylesReady = true;
