@@ -95,7 +95,13 @@ namespace GamePlay
             state = LevelState.Playing;
 
             string mId = MissionId;
-            lastStatusMessage = $"Đang chơi {mId}...";
+            bool isEditor = Application.isEditor;
+            bool skipFirebase = isEditor && (AnalyticsManager.Instance?.Config != null &&
+                (AnalyticsManager.Instance.Config.mobileOnlyForMissionEvents || AnalyticsManager.Instance.Config.disableAllInEditor));
+
+            lastStatusMessage = skipFirebase 
+                ? $"Đang chơi {mId}... [Editor: Bỏ qua Firebase]" 
+                : $"Đang chơi {mId}...";
 
             // Bắn event bắt đầu lên Firebase
             if (AnalyticsManager.Instance != null)
@@ -111,7 +117,7 @@ namespace GamePlay
             }
 
             OnLevelLoaded?.Invoke(currentLevel);
-            Debug.Log($"<color=#2EA3FF>[GamePlay]</color> 🚀 Bắt đầu màn: <b>{mId}</b>");
+            Debug.Log($"<color=#2EA3FF>[GamePlay]</color> 🚀 Bắt đầu màn: <b>{mId}</b> {(skipFirebase ? "(Unity Editor: Bỏ qua gửi Firebase theo cấu hình)" : "(Gửi lên Firebase)")}");
         }
 
         /// <summary>
@@ -126,7 +132,8 @@ namespace GamePlay
             float finalTime = playTime;
 
             bool isEditor = Application.isEditor;
-            bool mobileOnly = AnalyticsManager.Instance != null && AnalyticsManager.Instance.Config != null && AnalyticsManager.Instance.Config.mobileOnlyForWinLose;
+            bool mobileOnly = AnalyticsManager.Instance != null && AnalyticsManager.Instance.Config != null &&
+                (AnalyticsManager.Instance.Config.mobileOnlyForWinLose || AnalyticsManager.Instance.Config.mobileOnlyForMissionEvents || AnalyticsManager.Instance.Config.disableAllInEditor);
             bool skippedFirebase = isEditor && mobileOnly;
 
             if (skippedFirebase)
@@ -138,7 +145,7 @@ namespace GamePlay
                 lastStatusMessage = $"🎉 CHIẾN THẮNG {mId} ({finalTime:F1}s) -> Đang gửi Firebase";
             }
 
-            // Bắn event thắng lên Firebase (tự động bỏ qua nếu là Editor và mobileOnlyForWinLose = true)
+            // Bắn event thắng lên Firebase (tự động bỏ qua nếu là Editor và mobileOnly = true)
             if (AnalyticsManager.Instance != null)
             {
                 AnalyticsManager.Instance.LogCompleteMission(mId, finalTime);
@@ -170,7 +177,8 @@ namespace GamePlay
             float finalTime = playTime;
 
             bool isEditor = Application.isEditor;
-            bool mobileOnly = AnalyticsManager.Instance != null && AnalyticsManager.Instance.Config != null && AnalyticsManager.Instance.Config.mobileOnlyForWinLose;
+            bool mobileOnly = AnalyticsManager.Instance != null && AnalyticsManager.Instance.Config != null &&
+                (AnalyticsManager.Instance.Config.mobileOnlyForWinLose || AnalyticsManager.Instance.Config.mobileOnlyForMissionEvents || AnalyticsManager.Instance.Config.disableAllInEditor);
             bool skippedFirebase = isEditor && mobileOnly;
 
             if (skippedFirebase)
@@ -182,7 +190,7 @@ namespace GamePlay
                 lastStatusMessage = $"💀 THẤT BẠI {mId} ({finalTime:F1}s) -> Đang gửi Firebase";
             }
 
-            // Bắn event thua lên Firebase (tự động bỏ qua nếu là Editor và mobileOnlyForWinLose = true)
+            // Bắn event thua lên Firebase (tự động bỏ qua nếu là Editor và mobileOnly = true)
             if (AnalyticsManager.Instance != null)
             {
                 AnalyticsManager.Instance.LogFailMission(mId, finalTime);

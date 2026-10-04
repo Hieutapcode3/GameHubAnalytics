@@ -142,7 +142,10 @@ namespace GameHub.Analytics
                       $"player={_currentPlayerId} | session={SessionManager.SessionId}");
 
             // Upsert player profile lên Firestore (async, không block)
-            StartCoroutine(_playerData.UpsertProfile());
+            if (!(_config != null && _config.disableAllInEditor && Application.isEditor))
+            {
+                StartCoroutine(_playerData.UpsertProfile());
+            }
 
             // Nếu có events đang chờ trong queue → bắt đầu retry
             if (_queue.HasPending)
@@ -159,6 +162,14 @@ namespace GameHub.Analytics
         /// <summary>Log sự kiện bắt đầu mission.</summary>
         public void LogStartMission(string missionId, int retryCount = 0)
         {
+            // Nếu bật chế độ chỉ gửi trên mobile/giả lập và đang chạy trong Unity Editor -> Bỏ qua gửi Firebase
+            if (_config != null && (_config.mobileOnlyForMissionEvents || _config.disableAllInEditor) && Application.isEditor)
+            {
+                if (_config.enableDebugLog)
+                    Debug.Log($"<color=#FF9800>[Analytics]</color> ℹ️ [Platform Filter] Bỏ qua gửi sự kiện BẮT ĐẦU (Start) '{missionId}' lên Firebase vì đang chạy trong Unity Editor.");
+                return;
+            }
+
             var evt = CreateEvent("start_mission", missionId);
             evt.retryCount = retryCount;
             DispatchEvent(evt);
@@ -173,7 +184,7 @@ namespace GameHub.Analytics
                                        Dictionary<string, object> extraData = null)
         {
             // Nếu bật chế độ chỉ gửi trên mobile/giả lập và đang chạy trong Unity Editor -> Bỏ qua gửi Firebase
-            if (_config != null && _config.mobileOnlyForWinLose && Application.isEditor)
+            if (_config != null && (_config.mobileOnlyForWinLose || _config.mobileOnlyForMissionEvents || _config.disableAllInEditor) && Application.isEditor)
             {
                 if (_config.enableDebugLog)
                     Debug.Log($"<color=#FF9800>[Analytics]</color> ℹ️ [Platform Filter] Bỏ qua gửi sự kiện THẮNG (Complete) '{missionId}' lên Firebase vì đang chạy trong Unity Editor (chỉ gửi trên thiết bị mobile thật hoặc máy giả lập).");
@@ -195,7 +206,7 @@ namespace GameHub.Analytics
                                    Dictionary<string, object> extraData = null)
         {
             // Nếu bật chế độ chỉ gửi trên mobile/giả lập và đang chạy trong Unity Editor -> Bỏ qua gửi Firebase
-            if (_config != null && _config.mobileOnlyForWinLose && Application.isEditor)
+            if (_config != null && (_config.mobileOnlyForWinLose || _config.mobileOnlyForMissionEvents || _config.disableAllInEditor) && Application.isEditor)
             {
                 if (_config.enableDebugLog)
                     Debug.Log($"<color=#FF9800>[Analytics]</color> ℹ️ [Platform Filter] Bỏ qua gửi sự kiện THUA (Fail) '{missionId}' lên Firebase vì đang chạy trong Unity Editor (chỉ gửi trên thiết bị mobile thật hoặc máy giả lập).");
@@ -214,11 +225,25 @@ namespace GameHub.Analytics
 
         /// <summary>Log sự kiện chơi lại mission.</summary>
         public void LogRetryMission(string missionId)
-            => DispatchEvent(CreateEvent("retry_mission", missionId));
+        {
+            if (_config != null && (_config.mobileOnlyForMissionEvents || _config.disableAllInEditor) && Application.isEditor)
+            {
+                if (_config.enableDebugLog)
+                    Debug.Log($"<color=#FF9800>[Analytics]</color> ℹ️ [Platform Filter] Bỏ qua gửi sự kiện CHƠI LẠI (Retry) '{missionId}' lên Firebase vì đang chạy trong Unity Editor.");
+                return;
+            }
+            DispatchEvent(CreateEvent("retry_mission", missionId));
+        }
 
         /// <summary>Log sự kiện thoát mission giữa chừng.</summary>
         public void LogQuitMission(string missionId, float playTime)
         {
+            if (_config != null && (_config.mobileOnlyForMissionEvents || _config.disableAllInEditor) && Application.isEditor)
+            {
+                if (_config.enableDebugLog)
+                    Debug.Log($"<color=#FF9800>[Analytics]</color> ℹ️ [Platform Filter] Bỏ qua gửi sự kiện THOÁT MÀN (Quit) '{missionId}' lên Firebase vì đang chạy trong Unity Editor.");
+                return;
+            }
             var evt = CreateEvent("quit_mission", missionId);
             evt.playTime = playTime;
             DispatchEvent(evt);
@@ -343,6 +368,13 @@ namespace GameHub.Analytics
             if (!_config.isEnabled)
             {
                 Debug.Log("[Analytics] Analytics tắt (isEnabled=false). Event bị bỏ qua.");
+                return;
+            }
+
+            if (_config.disableAllInEditor && Application.isEditor)
+            {
+                if (_config.enableDebugLog)
+                    Debug.Log($"<color=#FF9800>[Analytics]</color> ℹ️ [Platform Filter] Bỏ qua event '{evt.eventType}' vì disableAllInEditor=true trong Unity Editor.");
                 return;
             }
 

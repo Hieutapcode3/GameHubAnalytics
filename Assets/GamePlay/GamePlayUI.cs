@@ -321,9 +321,10 @@ namespace GamePlay
             int queueCount  = AnalyticsManager.Instance != null ? AnalyticsManager.Instance.PendingQueueCount : 0;
 
             bool isEditor = Application.isEditor;
-            bool filterOn = AnalyticsManager.Instance != null && AnalyticsManager.Instance.Config != null && AnalyticsManager.Instance.Config.mobileOnlyForWinLose;
+            bool filterOn = AnalyticsManager.Instance != null && AnalyticsManager.Instance.Config != null && 
+                (AnalyticsManager.Instance.Config.mobileOnlyForWinLose || AnalyticsManager.Instance.Config.mobileOnlyForMissionEvents || AnalyticsManager.Instance.Config.disableAllInEditor);
             string platformTag = isEditor 
-                ? (filterOn ? "<color=#FFA726>[Editor: Win/Lose Firebase OFF]</color>" : "<color=#42A5F5>[Editor: Live]</color>")
+                ? (filterOn ? "<color=#FFA726>[Editor: Gameplay Firebase OFF]</color>" : "<color=#42A5F5>[Editor: Live]</color>")
                 : "<color=#66BB6A>[Mobile/Emulator: Live Firebase]</color>";
 
             GUI.color = Color.white;

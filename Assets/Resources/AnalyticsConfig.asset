@@ -21,3 +21,5 @@ MonoBehaviour:
   retryIntervalSeconds: 30
   requestTimeoutSeconds: 10
   mobileOnlyForWinLose: 1
+  mobileOnlyForMissionEvents: 1
+  disableAllInEditor: 0

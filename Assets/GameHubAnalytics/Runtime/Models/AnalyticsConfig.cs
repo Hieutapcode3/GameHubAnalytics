@@ -58,8 +58,14 @@ namespace GameHub.Analytics
         // ─────────────────────────────────────────────────────────
 
         [Header("Platform Filter")]
+        [Tooltip("Chỉ gửi các sự kiện gameplay màn chơi (Start, Win, Lose, Retry, Quit) lên Firebase khi chạy trên thiết bị di động thật hoặc máy giả lập (Bỏ qua khi chạy trong Unity Editor).")]
+        public bool mobileOnlyForMissionEvents = true;
+
         [Tooltip("Chỉ gửi sự kiện Thắng/Thua (Complete/Fail) lên Firebase khi chạy trên thiết bị di động thật hoặc máy giả lập (Bỏ qua khi chạy trong Unity Editor).")]
         public bool mobileOnlyForWinLose = true;
+
+        [Tooltip("Tắt hoàn toàn việc gửi dữ liệu lên Firebase khi chạy trong Unity Editor (bao gồm cả Profile, Session và Custom Events).")]
+        public bool disableAllInEditor = false;
 
         // ─────────────────────────────────────────────────────────
         //  Computed Properties (Auto-Trimmed to prevent space errors)
