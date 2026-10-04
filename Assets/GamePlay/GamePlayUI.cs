@@ -47,9 +47,9 @@ namespace GamePlay
 
             // Lưu ma trận GUI cũ và áp dụng scale nếu màn hình lớn/nhỏ
             var oldMatrix = GUI.matrix;
-            if (Screen.width < 800)
+            float factor = (Screen.width < 800 ? Screen.width / 800f : 1f) * Mathf.Max(0.5f, uiScale);
+            if (Mathf.Abs(factor - 1f) > 0.01f)
             {
-                float factor = Screen.width / 800f;
                 GUI.matrix = Matrix4x4.TRS(Vector3.zero, Quaternion.identity, new Vector3(factor, factor, 1f));
             }
 

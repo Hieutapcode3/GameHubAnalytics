@@ -297,6 +297,9 @@ namespace GameHub.Analytics
         /// <summary>Số event đang chờ trong offline queue.</summary>
         public int PendingQueueCount => _queue?.Count ?? 0;
 
+        /// <summary>Kiểm tra xem AnalyticsManager đã được khởi tạo thành công chưa.</summary>
+        public bool IsInitialized => _initialized;
+
         /// <summary>Bật/tắt analytics trong runtime.</summary>
         public void SetEnabled(bool enabled)
         {
