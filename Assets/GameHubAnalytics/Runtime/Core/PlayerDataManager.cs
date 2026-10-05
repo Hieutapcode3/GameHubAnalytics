@@ -7,32 +7,13 @@ using UnityEngine.Networking;
 
 namespace GameHub.Analytics
 {
-    /// <summary>
-    /// Quản lý đọc và ghi dữ liệu player lên Firebase Firestore.
-    /// 
-    /// Firestore paths:
-    ///   players/{playerId}                          ← PlayerProfile
-    ///   players/{playerId}/missions/{missionId}     ← PlayerMissionStats
-    /// 
-    /// Dùng atomic increment (Firestore commit API) để tránh race condition.
-    /// </summary>
     public class PlayerDataManager
     {
-        // ─────────────────────────────────────────────────────────
-        //  Fields
-        // ─────────────────────────────────────────────────────────
-
         private readonly AnalyticsConfig _config;
         private readonly string _playerId;
 
-        // Cache local để tránh đọc Firestore liên tục
-        // Key: missionId, Value: stats
         private readonly System.Collections.Generic.Dictionary<string, PlayerMissionStats> _statsCache
             = new System.Collections.Generic.Dictionary<string, PlayerMissionStats>();
-
-        // ─────────────────────────────────────────────────────────
-        //  Constructor
-        // ─────────────────────────────────────────────────────────
 
         public PlayerDataManager(AnalyticsConfig config, string playerId)
         {
@@ -40,14 +21,6 @@ namespace GameHub.Analytics
             _playerId = playerId;
         }
 
-        // ─────────────────────────────────────────────────────────
-        //  Public API — Write
-        // ─────────────────────────────────────────────────────────
-
-        /// <summary>
-        /// Ghi PlayerProfile lên Firestore khi lần đầu mở game.
-        /// Dùng PATCH để chỉ update lastSeen nếu profile đã tồn tại.
-        /// </summary>
         public IEnumerator UpsertProfile(Action<bool> onComplete = null)
         {
             string docPath  = $"players/{_playerId}";
@@ -58,7 +31,6 @@ namespace GameHub.Analytics
                               $"&updateMask.fieldPaths=lastSeen" +
                               $"&updateMask.fieldPaths=playerId";
 
-            // Kiểm tra xem profile đã tồn tại chưa (để set firstSeen)
             bool isNew = false;
             yield return CheckDocumentExists(docPath, exists => isNew = !exists);
 
@@ -89,10 +61,6 @@ namespace GameHub.Analytics
             }
         }
 
-        /// <summary>
-        /// Tăng counter "started" cho mission này (atomic increment).
-        /// Gọi khi: LogStartMission()
-        /// </summary>
         public IEnumerator IncrementStarted(string missionId, Action<bool> onComplete = null)
         {
             yield return CommitIncrement(missionId,
@@ -101,13 +69,8 @@ namespace GameHub.Analytics
                 onComplete: onComplete);
         }
 
-        /// <summary>
-        /// Tăng counter "completed" và cập nhật bestTime (nếu là record mới).
-        /// Gọi khi: LogCompleteMission()
-        /// </summary>
         public IEnumerator IncrementCompleted(string missionId, float playTime, Action<bool> onComplete = null)
         {
-            // Đọc bestTime hiện tại từ cache hoặc Firestore
             float currentBest = float.MaxValue;
             if (_statsCache.TryGetValue(missionId, out var cached))
                 currentBest = cached.bestTime > 0 ? cached.bestTime : float.MaxValue;
@@ -117,10 +80,6 @@ namespace GameHub.Analytics
             yield return CommitCompletionIncrement(missionId, playTime, isNewBest, onComplete);
         }
 
-        /// <summary>
-        /// Tăng counter "failed" và cộng totalPlayTime.
-        /// Gọi khi: LogFailMission()
-        /// </summary>
         public IEnumerator IncrementFailed(string missionId, float playTime, Action<bool> onComplete = null)
         {
             yield return CommitIncrement(missionId,
@@ -129,17 +88,8 @@ namespace GameHub.Analytics
                 onComplete: onComplete);
         }
 
-        // ─────────────────────────────────────────────────────────
-        //  Public API — Read
-        // ─────────────────────────────────────────────────────────
-
-        /// <summary>
-        /// Đọc thống kê mission của player từ Firestore.
-        /// Kết quả được cache local.
-        /// </summary>
         public IEnumerator GetMissionStats(string missionId, Action<PlayerMissionStats> onComplete)
         {
-            // Trả cache ngay nếu có
             if (_statsCache.TryGetValue(missionId, out var cached))
             {
                 onComplete?.Invoke(cached);
@@ -163,7 +113,6 @@ namespace GameHub.Analytics
                 }
                 else if (request.responseCode == 404)
                 {
-                    // Document chưa tồn tại → trả về stats rỗng
                     var empty = new PlayerMissionStats();
                     _statsCache[missionId] = empty;
                     onComplete?.Invoke(empty);
@@ -176,16 +125,11 @@ namespace GameHub.Analytics
             }
         }
 
-        /// <summary>
-        /// Lấy stats từ cache local (không gọi network).
-        /// Trả về null nếu chưa có trong cache.
-        /// </summary>
         public PlayerMissionStats GetCachedStats(string missionId)
         {
             return _statsCache.TryGetValue(missionId, out var stats) ? stats : null;
         }
 
-        /// <summary>Xóa cache để force refresh từ Firestore lần sau.</summary>
         public void InvalidateCache(string missionId = null)
         {
             if (missionId == null)
@@ -194,24 +138,16 @@ namespace GameHub.Analytics
                 _statsCache.Remove(missionId);
         }
 
-        // ─────────────────────────────────────────────────────────
-        //  Firestore Atomic Operations
-        // ─────────────────────────────────────────────────────────
-
-        /// <summary>
-        /// Dùng Firestore commit API để tăng counter atomic (thread-safe).
-        /// Tham số: tuple (fieldPath, incrementValue)
-        /// </summary>
         private IEnumerator CommitIncrement(string missionId,
             (string field, object value) increment1,
             (string field, object value) increment2 = default,
             Action<bool> onComplete = null)
         {
-            string docPath = $"projects/{_config.projectId}/databases/(default)/documents" +
+            string docPath = $"projects/{_config.CleanProjectId}/databases/(default)/documents" +
                              $"/players/{_playerId}/missions/{missionId}";
 
-            string url  = $"https://firestore.googleapis.com/v1/projects/{_config.projectId}" +
-                          $"/databases/(default)/documents:commit?key={_config.apiKey}";
+            string url  = $"https://firestore.googleapis.com/v1/projects/{_config.CleanProjectId}" +
+                          $"/databases/(default)/documents:commit?key={_config.CleanApiKey}";
             string body = BuildCommitBody(docPath, increment1, increment2);
 
             using (var request = new UnityWebRequest(url, "POST"))
@@ -227,7 +163,6 @@ namespace GameHub.Analytics
                 bool ok = request.result == UnityWebRequest.Result.Success;
                 if (ok)
                 {
-                    // Cập nhật cache local
                     UpdateLocalCache(missionId, increment1, increment2);
                     Log($"✓ Increment OK: {missionId}.{increment1.field}+={increment1.value}");
                 }
@@ -240,17 +175,14 @@ namespace GameHub.Analytics
             }
         }
 
-        /// <summary>
-        /// Commit hoàn thành mission: tăng completed + totalPlayTime + cập nhật bestTime nếu là record.
-        /// </summary>
         private IEnumerator CommitCompletionIncrement(string missionId, float playTime, bool isNewBest,
             Action<bool> onComplete = null)
         {
-            string docPath = $"projects/{_config.projectId}/databases/(default)/documents" +
+            string docPath = $"projects/{_config.CleanProjectId}/databases/(default)/documents" +
                              $"/players/{_playerId}/missions/{missionId}";
 
-            string url  = $"https://firestore.googleapis.com/v1/projects/{_config.projectId}" +
-                          $"/databases/(default)/documents:commit?key={_config.apiKey}";
+            string url  = $"https://firestore.googleapis.com/v1/projects/{_config.CleanProjectId}" +
+                          $"/databases/(default)/documents:commit?key={_config.CleanApiKey}";
             string body = BuildCompletionCommitBody(docPath, playTime, isNewBest);
 
             using (var request = new UnityWebRequest(url, "POST"))
@@ -266,7 +198,6 @@ namespace GameHub.Analytics
                 bool ok = request.result == UnityWebRequest.Result.Success;
                 if (ok)
                 {
-                    // Cập nhật cache
                     if (_statsCache.TryGetValue(missionId, out var s))
                     {
                         s.completed++;
@@ -284,10 +215,6 @@ namespace GameHub.Analytics
                 onComplete?.Invoke(ok);
             }
         }
-
-        // ─────────────────────────────────────────────────────────
-        //  JSON Builders
-        // ─────────────────────────────────────────────────────────
 
         private string BuildProfileJson(bool includeFirstSeen)
         {
@@ -309,7 +236,6 @@ namespace GameHub.Analytics
             return sb.ToString();
         }
 
-        /// <summary>Tạo Firestore commit body cho atomic increment.</summary>
         private string BuildCommitBody(string docPath,
             (string field, object value) inc1,
             (string field, object value) inc2 = default)
@@ -319,17 +245,14 @@ namespace GameHub.Analytics
             sb.Append($"\"document\":\"{docPath}\",");
             sb.Append("\"fieldTransforms\":[");
 
-            // Transform 1
             sb.Append(BuildFieldTransform(inc1.field, inc1.value));
 
-            // Transform 2 (nếu có)
             if (!string.IsNullOrEmpty(inc2.field))
             {
                 sb.Append(",");
                 sb.Append(BuildFieldTransform(inc2.field, inc2.value));
             }
 
-            // Luôn update lastPlayed
             sb.Append($",{{\"fieldPath\":\"lastPlayed\",\"setToServerValue\":\"REQUEST_TIME\"}}");
 
             sb.Append("]}}]}");
@@ -343,23 +266,25 @@ namespace GameHub.Analytics
             sb.Append($"\"document\":\"{docPath}\",");
             sb.Append("\"fieldTransforms\":[");
 
-            // Tăng completed
             sb.Append("{\"fieldPath\":\"completed\",\"increment\":{\"integerValue\":\"1\"}}");
 
-            // Cộng thêm totalPlayTime
-            sb.Append($",{{\"fieldPath\":\"totalPlayTime\",\"increment\":{{\"doubleValue\":{playTime.ToString("G", CultureInfo.InvariantCulture)}}}}}");
+            string playTimeStr = playTime.ToString("G", CultureInfo.InvariantCulture);
 
-            // lastPlayed server time
+            sb.Append(",{\"fieldPath\":\"totalPlayTime\",\"increment\":{\"doubleValue\":");
+            sb.Append(playTimeStr);
+            sb.Append("}}");
+
             sb.Append(",{\"fieldPath\":\"lastPlayed\",\"setToServerValue\":\"REQUEST_TIME\"}");
 
             sb.Append("]}}");
 
-            // Nếu là best time → thêm write riêng để set bestTime (không dùng increment vì cần set giá trị mới)
             if (setNewBest)
             {
-                sb.Append($",{{\"update\":{{\"name\":\"{docPath}\"," +
-                          $"\"fields\":{{\"bestTime\":{{\"doubleValue\":{playTime.ToString("G", CultureInfo.InvariantCulture)}}}}}}}}," +
-                          $"\"updateMask\":{{\"fieldPaths\":[\"bestTime\"]}}}}");
+                sb.Append(",{\"update\":{\"name\":\"");
+                sb.Append(docPath);
+                sb.Append("\",\"fields\":{\"bestTime\":{\"doubleValue\":");
+                sb.Append(playTimeStr);
+                sb.Append("}}},\"updateMask\":{\"fieldPaths\":[\"bestTime\"]}}");
             }
 
             sb.Append("]}");
@@ -374,18 +299,9 @@ namespace GameHub.Analytics
                 return $"{{\"fieldPath\":\"{field}\",\"increment\":{{\"doubleValue\":{fv.ToString("G", CultureInfo.InvariantCulture)}}}}}";
             if (value is double dv)
                 return $"{{\"fieldPath\":\"{field}\",\"increment\":{{\"doubleValue\":{dv.ToString("G", CultureInfo.InvariantCulture)}}}}}";
-            // String → dùng set thay vì increment
             return $"{{\"fieldPath\":\"{field}\",\"setToServerValue\":\"REQUEST_TIME\"}}";
         }
 
-        // ─────────────────────────────────────────────────────────
-        //  Firestore Response Parser
-        // ─────────────────────────────────────────────────────────
-
-        /// <summary>
-        /// Parse Firestore document JSON thành PlayerMissionStats.
-        /// Firestore format: { "fields": { "fieldName": { "integerValue": "5" }, ... } }
-        /// </summary>
         private static PlayerMissionStats ParseMissionStats(string json)
         {
             var stats = new PlayerMissionStats();
@@ -401,41 +317,70 @@ namespace GameHub.Analytics
             return stats;
         }
 
+        private static string ExtractFieldValue(string json, string field)
+        {
+            int fIdx = json.IndexOf($"\"{field}\"", StringComparison.Ordinal);
+            if (fIdx < 0) return "";
+
+            int colon = json.IndexOf(':', fIdx + field.Length + 2);
+            if (colon < 0) return "";
+
+            int openBrace = json.IndexOf('{', colon);
+            if (openBrace < 0) return "";
+
+            int closeBrace = -1;
+            bool inQuotes = false;
+            for (int i = openBrace + 1; i < json.Length; i++)
+            {
+                char c = json[i];
+                if (c == '\\' && i + 1 < json.Length)
+                {
+                    i++;
+                    continue;
+                }
+                if (c == '"') inQuotes = !inQuotes;
+                else if (c == '}' && !inQuotes)
+                {
+                    closeBrace = i;
+                    break;
+                }
+            }
+            if (closeBrace < 0) return "";
+
+            string block = json.Substring(openBrace, closeBrace - openBrace + 1);
+            int valColon = block.IndexOf(':');
+            if (valColon < 0) return "";
+
+            int q1 = block.IndexOf('"', valColon + 1);
+            if (q1 >= 0)
+            {
+                int q2 = block.IndexOf('"', q1 + 1);
+                if (q2 > q1) return block.Substring(q1 + 1, q2 - q1 - 1);
+            }
+
+            int endBrace = block.IndexOf('}', valColon + 1);
+            if (endBrace > valColon)
+                return block.Substring(valColon + 1, endBrace - valColon - 1).Trim();
+
+            return "";
+        }
+
         private static int ExtractInt(string json, string field)
         {
-            string pattern = $"\"{field}\":{{\"integerValue\":\"";
-            int idx = json.IndexOf(pattern, StringComparison.Ordinal);
-            if (idx < 0) return 0;
-            idx += pattern.Length;
-            int end = json.IndexOf("\"", idx, StringComparison.Ordinal);
-            return end > idx && int.TryParse(json.Substring(idx, end - idx), out int v) ? v : 0;
+            string val = ExtractFieldValue(json, field);
+            return int.TryParse(val, out int v) ? v : 0;
         }
 
         private static float ExtractFloat(string json, string field)
         {
-            // Thử doubleValue trước
-            string pattern = $"\"{field}\":{{\"doubleValue\":";
-            int idx = json.IndexOf(pattern, StringComparison.Ordinal);
-            if (idx < 0) return 0f;
-            idx += pattern.Length;
-            int end = json.IndexOfAny(new[] { ',', '}' }, idx);
-            return end > idx && float.TryParse(json.Substring(idx, end - idx),
-                NumberStyles.Float, CultureInfo.InvariantCulture, out float v) ? v : 0f;
+            string val = ExtractFieldValue(json, field);
+            return float.TryParse(val, NumberStyles.Float, CultureInfo.InvariantCulture, out float v) ? v : 0f;
         }
 
         private static string ExtractString(string json, string field)
         {
-            string pattern = $"\"{field}\":{{\"stringValue\":\"";
-            int idx = json.IndexOf(pattern, StringComparison.Ordinal);
-            if (idx < 0) return "";
-            idx += pattern.Length;
-            int end = json.IndexOf("\"", idx, StringComparison.Ordinal);
-            return end > idx ? json.Substring(idx, end - idx) : "";
+            return ExtractFieldValue(json, field);
         }
-
-        // ─────────────────────────────────────────────────────────
-        //  Helpers
-        // ─────────────────────────────────────────────────────────
 
         private IEnumerator CheckDocumentExists(string docPath, Action<bool> onResult)
         {

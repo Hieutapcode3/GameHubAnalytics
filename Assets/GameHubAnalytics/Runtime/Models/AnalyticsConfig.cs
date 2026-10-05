@@ -2,69 +2,80 @@ using UnityEngine;
 
 namespace GameHub.Analytics
 {
-    /// <summary>
-    /// ScriptableObject chứa toàn bộ cấu hình kết nối Firebase cho GameHub Analytics.
-    /// 
-    /// Tạo instance: Right-click trong Project > Create > GameHub > Analytics Config
-    /// Đặt tên file là "AnalyticsConfig" và đặt vào thư mục Resources/
-    /// </summary>
     [CreateAssetMenu(fileName = "AnalyticsConfig", menuName = "GameHub/Analytics Config")]
     public class AnalyticsConfig : ScriptableObject
     {
-        // ─────────────────────────────────────────────────────────
-        //  Firebase Settings
-        // ─────────────────────────────────────────────────────────
-
         [Header("Firebase Settings")]
-        [Tooltip("Firebase Web API Key\nLấy tại: Firebase Console > Project Settings > General > Web API Key")]
+        [Tooltip("Firebase Web API Key from Firebase Console > Project Settings > General")]
         public string apiKey = "";
 
-        [Tooltip("Firebase Project ID\nLấy tại: Firebase Console > Project Settings > General > Project ID")]
+        [Tooltip("Firebase Project ID from Firebase Console > Project Settings > General")]
         public string projectId = "";
 
-        // ─────────────────────────────────────────────────────────
-        //  Game Settings
-        // ─────────────────────────────────────────────────────────
-
         [Header("Game Settings")]
-        [Tooltip("Unique identifier của game này trên Firestore (dùng để phân loại data theo game)")]
+        [Tooltip("Unique identifier for this game in Firestore")]
         public string gameId = "my-game";
 
-        // ─────────────────────────────────────────────────────────
-        //  Behavior Settings
-        // ─────────────────────────────────────────────────────────
-
         [Header("Behavior")]
-        [Tooltip("Bật/tắt analytics toàn bộ package. Khi false, mọi event đều bị bỏ qua.")]
+        [Tooltip("Master switch for analytics. When false, events are ignored.")]
         public bool isEnabled = true;
 
-        [Tooltip("Hiện debug log trong Console. Nên tắt khi build production.")]
+        [Tooltip("Show debug logs in Unity Console.")]
         public bool enableDebugLog = true;
 
-        [Tooltip("Số lượng event tối đa được giữ trong queue khi offline (tránh tràn bộ nhớ)")]
+        [Tooltip("Maximum queue capacity for offline events.")]
         [Range(10, 500)]
         public int maxQueueSize = 100;
 
-        [Tooltip("Thời gian (giây) giữa mỗi lần thử gửi lại khi mất kết nối")]
+        [Tooltip("Retry interval in seconds when disconnected.")]
         [Range(5f, 300f)]
         public float retryIntervalSeconds = 30f;
 
-        [Tooltip("Timeout (giây) cho mỗi HTTP request")]
+        [Tooltip("HTTP request timeout in seconds.")]
         [Range(5f, 60f)]
         public float requestTimeoutSeconds = 10f;
 
-        // ─────────────────────────────────────────────────────────
-        //  Computed Properties
-        // ─────────────────────────────────────────────────────────
+        [Header("Platform Filter")]
+        [Tooltip("Send mission events (Start, Win, Lose, Retry, Quit) to Firebase only on real mobile devices or emulators.")]
+        public bool mobileOnlyForMissionEvents = true;
 
-        /// <summary>Base URL của Firestore REST API cho project này.</summary>
+        [Tooltip("Send Win/Lose events to Firebase only on real mobile devices or emulators.")]
+        public bool mobileOnlyForWinLose = true;
+
+        [Tooltip("Disable all Firebase event transmissions when running in Unity Editor.")]
+        public bool disableAllInEditor = false;
+
+        public static bool IsMobileOrEmulator
+        {
+            get
+            {
+#if UNITY_EDITOR
+                return false;
+#else
+                return Application.isMobilePlatform ||
+                       Application.platform == RuntimePlatform.Android ||
+                       Application.platform == RuntimePlatform.IPhonePlayer;
+#endif
+            }
+        }
+
+        public string CleanProjectId => projectId?.Trim() ?? "";
+        public string CleanApiKey    => apiKey?.Trim() ?? "";
+        public string CleanGameId    => gameId?.Trim() ?? "";
+
         public string FirestoreBaseUrl =>
-            $"https://firestore.googleapis.com/v1/projects/{projectId}/databases/(default)/documents";
+            $"https://firestore.googleapis.com/v1/projects/{CleanProjectId}/databases/(default)/documents";
 
-        /// <summary>Kiểm tra config đã được điền đầy đủ các trường bắt buộc chưa.</summary>
         public bool IsValid =>
-            !string.IsNullOrEmpty(apiKey) &&
-            !string.IsNullOrEmpty(projectId) &&
-            !string.IsNullOrEmpty(gameId);
+            !string.IsNullOrWhiteSpace(apiKey) &&
+            !string.IsNullOrWhiteSpace(projectId) &&
+            !string.IsNullOrWhiteSpace(gameId);
+
+        private void OnValidate()
+        {
+            if (apiKey != null) apiKey = apiKey.Trim();
+            if (projectId != null) projectId = projectId.Trim();
+            if (gameId != null) gameId = gameId.Trim();
+        }
     }
 }

@@ -6,13 +6,6 @@ using UnityEngine.Networking;
 
 namespace GameHub.Analytics
 {
-    /// <summary>
-    /// Wrapper giao tiếp với Firebase Firestore qua REST API.
-    /// Không cần Firebase Unity SDK — chỉ dùng UnityWebRequest có sẵn trong Unity.
-    /// 
-    /// Firestore document path:
-    ///   analytics/{gameId}/missions/{missionId}/events/{autoId}
-    /// </summary>
     public class FirestoreClient
     {
         private readonly AnalyticsConfig _config;
@@ -22,26 +15,15 @@ namespace GameHub.Analytics
             _config = config;
         }
 
-        // ─────────────────────────────────────────────────────────
-        //  Write
-        // ─────────────────────────────────────────────────────────
-
-        /// <summary>
-        /// Ghi một MissionEvent lên Firestore (auto-generated document ID).
-        /// Gọi bằng StartCoroutine từ MonoBehaviour.
-        /// </summary>
-        /// <param name="missionEvent">Event cần ghi</param>
-        /// <param name="onComplete">Callback (success, responseText)</param>
         public IEnumerator PostEvent(MissionEvent missionEvent, Action<bool, string> onComplete = null)
         {
             if (!_config.IsValid)
             {
-                LogError("AnalyticsConfig chưa được cấu hình đầy đủ (thiếu apiKey hoặc projectId).");
+                LogError("AnalyticsConfig is not properly configured (missing apiKey or projectId).");
                 onComplete?.Invoke(false, "Config invalid");
                 yield break;
             }
 
-            // Firestore path: POST vào collection để tự gen document ID
             string collectionPath = $"analytics/{_config.gameId}/missions/{missionEvent.missionId}/events";
             string url  = $"{_config.FirestoreBaseUrl}/{collectionPath}?key={_config.apiKey}";
             string body = missionEvent.ToFirestoreJson();
@@ -70,12 +52,6 @@ namespace GameHub.Analytics
             }
         }
 
-        /// <summary>
-        /// Ghi một raw Firestore JSON string lên collection (dùng khi retry từ queue).
-        /// </summary>
-        /// <param name="missionId">Mission ID để xác định collection path</param>
-        /// <param name="firestoreJson">JSON đã serialize sẵn</param>
-        /// <param name="onComplete">Callback (success, responseText)</param>
         public IEnumerator PostRawJson(string missionId, string firestoreJson, Action<bool, string> onComplete = null)
         {
             string collectionPath = $"analytics/{_config.gameId}/missions/{missionId}/events";
@@ -96,19 +72,11 @@ namespace GameHub.Analytics
             }
         }
 
-        // ─────────────────────────────────────────────────────────
-        //  Connection Test
-        // ─────────────────────────────────────────────────────────
-
-        /// <summary>
-        /// Kiểm tra kết nối đến Firebase bằng cách GET document analytics root.
-        /// HTTP 200 hoặc 404 đều được tính là kết nối thành công.
-        /// </summary>
         public IEnumerator TestConnection(Action<bool, string> onComplete)
         {
             if (!_config.IsValid)
             {
-                onComplete?.Invoke(false, "Config invalid: thiếu apiKey hoặc projectId.");
+                onComplete?.Invoke(false, "Config invalid: missing apiKey or projectId.");
                 yield break;
             }
 
@@ -120,22 +88,17 @@ namespace GameHub.Analytics
                 request.timeout = 10;
                 yield return request.SendWebRequest();
 
-                // 200 = OK, 404 = collection chưa có nhưng project OK
                 bool connected = request.result == UnityWebRequest.Result.Success
                               || request.responseCode == 404;
 
                 string msg = connected
-                    ? $"Kết nối Firebase thành công (HTTP {request.responseCode})"
-                    : $"Kết nối thất bại: {request.error} (HTTP {request.responseCode})";
+                    ? $"Firebase connection successful (HTTP {request.responseCode})"
+                    : $"Firebase connection failed: {request.error} (HTTP {request.responseCode})";
 
                 Log(msg);
                 onComplete?.Invoke(connected, msg);
             }
         }
-
-        // ─────────────────────────────────────────────────────────
-        //  Logging
-        // ─────────────────────────────────────────────────────────
 
         private void Log(string msg)
         {

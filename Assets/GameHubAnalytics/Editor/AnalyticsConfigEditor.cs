@@ -4,31 +4,18 @@ using UnityEngine.Networking;
 
 namespace GameHub.Analytics.Editor
 {
-    /// <summary>
-    /// Custom Inspector cho AnalyticsConfig ScriptableObject.
-    /// Thêm nút Test Connection, Send Test Event và link đến Firebase Console.
-    /// </summary>
     [CustomEditor(typeof(AnalyticsConfig))]
     public class AnalyticsConfigEditor : UnityEditor.Editor
     {
-        // ─────────────────────────────────────────────────────────
-        //  State
-        // ─────────────────────────────────────────────────────────
-
         private string _statusMessage  = "";
         private bool   _statusIsError  = false;
         private bool   _statusIsGood   = false;
-
-        // ─────────────────────────────────────────────────────────
-        //  GUI
-        // ─────────────────────────────────────────────────────────
 
         public override void OnInspectorGUI()
         {
             serializedObject.Update();
             var config = (AnalyticsConfig)target;
 
-            // ── Header ──────────────────────────────────────────
             EditorGUILayout.Space(6);
             GUIStyle titleStyle = new GUIStyle(EditorStyles.boldLabel)
             {
@@ -39,7 +26,6 @@ namespace GameHub.Analytics.Editor
             EditorGUILayout.LabelField("Firebase Firestore — REST API", new GUIStyle(EditorStyles.centeredGreyMiniLabel));
             EditorGUILayout.Space(6);
 
-            // ── Validation Banner ────────────────────────────────
             if (!config.IsValid)
             {
                 EditorGUILayout.HelpBox(
@@ -55,7 +41,6 @@ namespace GameHub.Analytics.Editor
             }
             EditorGUILayout.Space(4);
 
-            // ── Default Inspector Fields ─────────────────────────
             DrawDefaultInspector();
 
             EditorGUILayout.Space(10);
@@ -63,7 +48,6 @@ namespace GameHub.Analytics.Editor
             EditorGUILayout.LabelField("🔧  Công cụ kiểm tra", EditorStyles.boldLabel);
             EditorGUILayout.Space(4);
 
-            // ── Action Buttons ───────────────────────────────────
             EditorGUILayout.BeginHorizontal();
 
             GUI.enabled = config.IsValid;
@@ -86,7 +70,6 @@ namespace GameHub.Analytics.Editor
 
             EditorGUILayout.EndHorizontal();
 
-            // ── Status Message ───────────────────────────────────
             if (!string.IsNullOrEmpty(_statusMessage))
             {
                 EditorGUILayout.Space(6);
@@ -96,7 +79,6 @@ namespace GameHub.Analytics.Editor
                 EditorGUILayout.HelpBox(_statusMessage, msgType);
             }
 
-            // ── Firestore Path Preview ───────────────────────────
             if (config.IsValid)
             {
                 EditorGUILayout.Space(6);
@@ -114,10 +96,6 @@ namespace GameHub.Analytics.Editor
 
             serializedObject.ApplyModifiedProperties();
         }
-
-        // ─────────────────────────────────────────────────────────
-        //  Actions
-        // ─────────────────────────────────────────────────────────
 
         private void TestConnectionAsync(AnalyticsConfig config)
         {
