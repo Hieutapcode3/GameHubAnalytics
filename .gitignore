@@ -88,8 +88,8 @@ secrets/
 **/secrets/**
 
 # ── Analytics Config secrets ─────────────────────────
-# Uncomment nếu bạn không muốn commit API key:
-# Assets/Resources/AnalyticsConfig.asset
+Assets/Resources/AnalyticsConfig.asset
+Assets/Resources/AnalyticsConfig.asset.meta
 
 # ── Unity Collaborate ────────────────────────────────
 .collabignore
