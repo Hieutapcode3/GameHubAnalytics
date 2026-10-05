@@ -32,8 +32,10 @@ Khi phát triển và test nội bộ các bản build game (đặc biệt là x
 Không chỉ ghi log một chiều, GameHub Analytics cho phép game **đọc lại dữ liệu** của chính người chơi đó:
 - **Ghi nhận tiến độ**: Số lần chơi (`started`), số lần thắng (`completed`), số lần thua (`failed`), thời gian hoàn thành kỷ lục (`bestTime`), tổng thời gian chơi (`totalPlayTime`).
 - **Tự động tính toán chỉ số**:
-  - `Win Rate (%)` = $\frac{\text{completed}}{\text{completed} + \text{failed}} \times 100\%$
-  - `Completion Rate (%)` = $\frac{\text{completed}}{\text{started}} \times 100\%$
+  - `Win Rate (%)` = $\frac{\text{completed}}{\text{completed} + \text{failed}} \times 100\%$ (Thước đo độ khó cơ học màn chơi trên các ván có kết quả phân định).
+  - `Completion Rate (%)`:
+    - **Cấp độ Màn chơi (Level Funnel - chuẩn Lion Studios)**: $\frac{\text{completedPlayers}}{\text{playerCount}} \times 100\%$ (Tỷ lệ người chơi thực sự vượt qua màn).
+    - **Cấp độ Lượt chơi (Attempt Conversion)**: $\frac{\text{completed}}{\text{started}} \times 100\%$ (Tỷ lệ hoàn thành từ lúc bấm Bắt đầu).
 - **Cơ chế cập nhật nguyên tử (Atomic Increments)**: Dữ liệu được cập nhật an toàn trên Firestore, tránh race condition khi mạng gián đoạn.
 - **Bộ nhớ đệm thông minh (Local Cache)**: Dữ liệu sau khi tải sẽ được lưu tạm tại client, giúp truy xuất tức thì mà không tốn request mạng liên tục.
 

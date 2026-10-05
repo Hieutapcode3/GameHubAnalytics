@@ -5,79 +5,31 @@ using System.Text;
 
 namespace GameHub.Analytics
 {
-    /// <summary>
-    /// Data model đại diện cho một analytics event trong game.
-    /// Hỗ trợ serialize thành định dạng Firestore REST API JSON.
-    /// </summary>
     [Serializable]
     public class MissionEvent
     {
-        // ─────────────────────────────────────────────────────────
-        //  Core Fields
-        // ─────────────────────────────────────────────────────────
-
-        /// <summary>Loại sự kiện: start_mission, complete_mission, fail_mission, v.v.</summary>
         public string eventType;
-
-        /// <summary>ID của mission (ví dụ: "level_01", "boss_stage_3")</summary>
         public string missionId;
-
-        /// <summary>Thời điểm xảy ra event (ISO 8601 UTC)</summary>
         public string timestamp;
-
-        /// <summary>ID người chơi (auto-generated hoặc custom)</summary>
         public string playerId;
-
-        /// <summary>Session ID duy nhất cho mỗi lần mở game</summary>
         public string sessionId;
-
-        /// <summary>Nền tảng: Android, iOS, Windows, Editor, v.v.</summary>
         public string platform;
-
-        // ─────────────────────────────────────────────────────────
-        //  Performance Fields
-        // ─────────────────────────────────────────────────────────
-
-        /// <summary>Thời gian chơi của event này (giây)</summary>
         public float playTime;
-
-        /// <summary>Số lần chơi lại mission này trong session hiện tại</summary>
         public int retryCount;
-
-        // ─────────────────────────────────────────────────────────
-        //  Extension
-        // ─────────────────────────────────────────────────────────
-
-        /// <summary>Data tùy chỉnh mở rộng (key-value pairs)</summary>
         public Dictionary<string, object> customData;
-
-        // ─────────────────────────────────────────────────────────
-        //  Constructors
-        // ─────────────────────────────────────────────────────────
 
         public MissionEvent() { }
 
-        /// <summary>
-        /// Tạo event với đầy đủ context tự động (timestamp, platform, sessionId).
-        /// </summary>
         public MissionEvent(string eventType, string missionId)
         {
             this.eventType  = eventType;
             this.missionId  = missionId;
-            this.timestamp  = DateTime.UtcNow.ToString("o"); // ISO 8601
+            this.timestamp  = DateTime.UtcNow.ToString("o");
             this.platform   = PlatformHelper.GetPlatformName();
             this.sessionId  = SessionManager.SessionId;
             this.customData = new Dictionary<string, object>();
         }
 
-        // ─────────────────────────────────────────────────────────
-        //  Firestore Serialization
-        // ─────────────────────────────────────────────────────────
-
-        /// <summary>
-        /// Chuyển MissionEvent thành Firestore REST document JSON.
-        /// Format: { "fields": { "fieldName": { "stringValue": "..." }, ... } }
-        /// </summary>
         public string ToFirestoreJson()
         {
             var sb = new StringBuilder();
@@ -101,10 +53,6 @@ namespace GameHub.Analytics
             sb.Append("}}");
             return sb.ToString();
         }
-
-        // ─────────────────────────────────────────────────────────
-        //  Private Helpers
-        // ─────────────────────────────────────────────────────────
 
         private static void AppendStringField(StringBuilder sb, string key, string value)
         {

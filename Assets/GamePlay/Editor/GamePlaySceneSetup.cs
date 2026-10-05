@@ -5,9 +5,6 @@ using GamePlay;
 
 namespace GamePlay.Editor
 {
-    /// <summary>
-    /// Công cụ hỗ trợ tạo và thiết lập GamePlayController trong Scene với 1 click.
-    /// </summary>
     public static class GamePlaySceneSetup
     {
         [MenuItem("GameHub/🎮 Setup GamePlay In Current Scene", priority = 1)]

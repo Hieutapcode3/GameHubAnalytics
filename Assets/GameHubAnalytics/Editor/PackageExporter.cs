@@ -4,18 +4,11 @@ using System.IO;
 
 namespace GameHub.Analytics.Editor
 {
-    /// <summary>
-    /// Tool xuất GameHub Analytics Package thành .unitypackage để share nội bộ.
-    /// </summary>
     public static class PackageExporter
     {
         private const string PACKAGE_ASSETS_PATH = "Assets/GameHubAnalytics";
         private const string PACKAGE_NAME        = "GameHubAnalytics";
         private const string PACKAGE_VERSION     = "1.0.0";
-
-        // ─────────────────────────────────────────────────────────
-        //  Menu Items
-        // ─────────────────────────────────────────────────────────
 
         [MenuItem("GameHub/Analytics/📦 Export .unitypackage")]
         public static void ExportPackage()

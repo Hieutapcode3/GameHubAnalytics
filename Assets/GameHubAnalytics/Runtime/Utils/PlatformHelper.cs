@@ -2,12 +2,8 @@ using UnityEngine;
 
 namespace GameHub.Analytics
 {
-    /// <summary>
-    /// Utility tự động detect platform đang chạy và trả về tên chuỗi thân thiện.
-    /// </summary>
     public static class PlatformHelper
     {
-        /// <summary>Trả về tên platform hiện tại dưới dạng string.</summary>
         public static string GetPlatformName()
         {
             switch (Application.platform)
@@ -52,13 +48,11 @@ namespace GameHub.Analytics
             }
         }
 
-        /// <summary>Kiểm tra đang chạy trong Unity Editor không.</summary>
         public static bool IsEditor =>
             Application.platform == RuntimePlatform.WindowsEditor ||
             Application.platform == RuntimePlatform.OSXEditor     ||
             Application.platform == RuntimePlatform.LinuxEditor;
 
-        /// <summary>Kiểm tra đang chạy trên mobile không.</summary>
         public static bool IsMobile =>
             Application.platform == RuntimePlatform.Android ||
             Application.platform == RuntimePlatform.IPhonePlayer;
