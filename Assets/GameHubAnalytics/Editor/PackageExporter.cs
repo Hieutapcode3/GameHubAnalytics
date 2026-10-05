@@ -37,12 +37,29 @@ namespace GameHub.Analytics.Editor
 
             try
             {
-                AssetDatabase.ExportPackage(
-                    PACKAGE_ASSETS_PATH,
-                    savePath,
-                    ExportPackageOptions.Recurse | ExportPackageOptions.IncludeDependencies);
+                var filesToExport = new System.Collections.Generic.List<string>();
+                string[] allAssetPaths = AssetDatabase.GetAllAssetPaths();
+                foreach (var assetPath in allAssetPaths)
+                {
+                    if (!assetPath.StartsWith(PACKAGE_ASSETS_PATH, System.StringComparison.OrdinalIgnoreCase))
+                        continue;
 
-                Debug.Log($"[Analytics] ✅ Package exported → {savePath}");
+                    string fileName = Path.GetFileName(assetPath);
+                    if (fileName.Equals("package.json", System.StringComparison.OrdinalIgnoreCase) ||
+                        fileName.Equals("CHANGELOG.md", System.StringComparison.OrdinalIgnoreCase))
+                    {
+                        continue;
+                    }
+
+                    filesToExport.Add(assetPath);
+                }
+
+                AssetDatabase.ExportPackage(
+                    filesToExport.ToArray(),
+                    savePath,
+                    ExportPackageOptions.IncludeDependencies);
+
+                Debug.Log($"[Analytics] Package exported ({filesToExport.Count} assets) → {savePath}");
 
                 bool openFolder = EditorUtility.DisplayDialog(
                     "Export Thành Công! ✅",
