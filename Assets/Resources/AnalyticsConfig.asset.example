@@ -12,9 +12,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 702399db2ae838b45990dc605290f982, type: 3}
   m_Name: AnalyticsConfig
   m_EditorClassIdentifier: 
-  apiKey: AIzaSyC4y4UeZJvzlKOK8guZ2Z5nNmuWhC3KAAQ
-  projectId: gamehub-f9f3f
-  gameId: GameHubTest
+  apiKey: 
+  projectId: 
+  gameId: my-game
   isEnabled: 1
   enableDebugLog: 1
   maxQueueSize: 100
