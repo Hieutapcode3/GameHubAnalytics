@@ -1,6 +1,6 @@
 {
   "name": "com.gamehub.analytics",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "displayName": "GameHub Analytics",
   "description": "Internal analytics package for tracking gameplay events via Firebase Firestore. No Firebase SDK required — uses UnityWebRequest REST API.",
   "unity": "6000.0",

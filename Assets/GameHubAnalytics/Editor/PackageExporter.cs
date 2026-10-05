@@ -8,7 +8,7 @@ namespace GameHub.Analytics.Editor
     {
         private const string PACKAGE_ASSETS_PATH = "Assets/GameHubAnalytics";
         private const string PACKAGE_NAME        = "GameHubAnalytics";
-        private const string PACKAGE_VERSION     = "1.0.0";
+        private const string PACKAGE_VERSION     = "1.1.0";
 
         [MenuItem("GameHub/Analytics/📦 Export .unitypackage")]
         public static void ExportPackage()
