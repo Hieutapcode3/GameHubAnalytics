@@ -14,7 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   apiKey: 
   projectId: 
-  gameId: my-game
+  gameId: 
   isEnabled: 1
   enableDebugLog: 1
   maxQueueSize: 100

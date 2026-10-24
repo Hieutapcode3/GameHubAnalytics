@@ -24,7 +24,7 @@ namespace GameHub.Analytics
                 yield break;
             }
 
-            string collectionPath = $"analytics/{_config.gameId}/missions/{missionEvent.missionId}/events";
+            string collectionPath = $"{_config.GameRoot}/missions/{missionEvent.missionId}/events";
             string url  = $"{_config.FirestoreBaseUrl}/{collectionPath}?key={_config.apiKey}";
             string body = missionEvent.ToFirestoreJson();
 
@@ -54,7 +54,7 @@ namespace GameHub.Analytics
 
         public IEnumerator PostRawJson(string missionId, string firestoreJson, Action<bool, string> onComplete = null)
         {
-            string collectionPath = $"analytics/{_config.gameId}/missions/{missionId}/events";
+            string collectionPath = $"{_config.GameRoot}/missions/{missionId}/events";
             string url = $"{_config.FirestoreBaseUrl}/{collectionPath}?key={_config.apiKey}";
 
             using (var request = new UnityWebRequest(url, "POST"))

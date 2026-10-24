@@ -90,7 +90,7 @@ namespace GameHub.Analytics.Editor
                     fontStyle = FontStyle.Italic
                 };
                 EditorGUILayout.LabelField(
-                    $"analytics/{config.gameId}/missions/{{missionId}}/events/{{autoId}}",
+                    $"{config.GameRoot}/missions/{{missionId}}/events/{{autoId}}",
                     pathStyle);
             }
 

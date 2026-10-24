@@ -195,7 +195,7 @@ namespace GameHub.Analytics.Editor
             EditorGUILayout.LabelField("📊  GameHub Analytics — Firestore Dashboard", _titleStyle);
 
             string projInfo = _config != null && _config.IsValid
-                ? $"Project: {_config.projectId}  |  Game: {_config.gameId}  |  Trạng thái: Kết nối hợp lệ"
+                ? $"Project: {_config.projectId}  |  Game: {_config.CleanGameId}  |  Trạng thái: Kết nối hợp lệ"
                 : "Chưa cấu hình Firebase hoặc thiếu API Key / Project ID";
             EditorGUILayout.LabelField(projInfo, _subtitleStyle);
 
@@ -658,7 +658,7 @@ namespace GameHub.Analytics.Editor
             Repaint();
 
             // Run collectionGroup query for missions
-            string url = $"{_config.FirestoreBaseUrl}:runQuery?key={_config.CleanApiKey}";
+            string url = $"{_config.FirestoreBaseUrl}/{_config.GameRoot}:runQuery?key={_config.CleanApiKey}";
             string bodyMissions = "{\"structuredQuery\":{\"from\":[{\"collectionId\":\"missions\",\"allDescendants\":true}]}}";
 
             var request = new UnityWebRequest(url, "POST");
@@ -690,7 +690,7 @@ namespace GameHub.Analytics.Editor
 
         private void FetchRealEvents()
         {
-            string url = $"{_config.FirestoreBaseUrl}:runQuery?key={_config.CleanApiKey}";
+            string url = $"{_config.FirestoreBaseUrl}/{_config.GameRoot}:runQuery?key={_config.CleanApiKey}";
             string bodyEvents = "{\"structuredQuery\":{\"from\":[{\"collectionId\":\"events\",\"allDescendants\":true}],\"limit\":200}}";
 
             var request = new UnityWebRequest(url, "POST");
@@ -735,7 +735,7 @@ namespace GameHub.Analytics.Editor
                 string docName = ExtractDocName(docBlock);
                 if (string.IsNullOrEmpty(docName)) continue;
 
-                // Format: projects/.../databases/(default)/documents/players/{playerId}/missions/{missionId}
+                // Format: projects/.../databases/(default)/documents/analytics/{gameId}/players/{playerId}/missions/{missionId}
                 string playerId = ExtractBetween(docName, "/players/", "/missions/");
                 string missionId = "";
                 int mIdx = docName.IndexOf("/missions/", StringComparison.Ordinal);
@@ -747,7 +747,7 @@ namespace GameHub.Analytics.Editor
                 }
 
                 if (string.IsNullOrEmpty(missionId)) continue;
-                if (string.IsNullOrEmpty(playerId)) playerId = "Unknown";
+                if (string.IsNullOrEmpty(playerId)) continue; // analytics/{gameId}/missions/{id} is the events parent, not player stats
 
                 var pRow = new PlayerRow
                 {

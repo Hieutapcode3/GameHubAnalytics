@@ -1,0 +1,22 @@
+rules_version = '2';
+
+// Paste into Firebase Console > Firestore Database > Rules.
+// One Firebase project, many games: every game lives under analytics/{gameId}/.
+// The client has no auth (API key only), so these paths are open; everything else is denied.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // analytics/{gameId} and everything below it (players, missions, events)
+    match /analytics/{gameId}/{document=**} {
+      allow read, write: if true;
+    }
+
+    // Dashboard uses collection-group queries scoped to analytics/{gameId}
+    match /{path=**}/missions/{missionId} {
+      allow read: if true;
+    }
+    match /{path=**}/events/{eventId} {
+      allow read: if true;
+    }
+  }
+}

@@ -21,9 +21,11 @@ namespace GameHub.Analytics
             _playerId = playerId;
         }
 
+        private string PlayerDoc => $"{_config.GameRoot}/players/{_playerId}";
+
         public IEnumerator UpsertProfile(Action<bool> onComplete = null)
         {
-            string docPath  = $"players/{_playerId}";
+            string docPath  = PlayerDoc;
             string url      = $"{_config.FirestoreBaseUrl}/{docPath}?key={_config.apiKey}" +
                               $"&updateMask.fieldPaths=platform" +
                               $"&updateMask.fieldPaths=deviceModel" +
@@ -41,7 +43,8 @@ namespace GameHub.Analytics
 
             Log($"Upserting profile → player={_playerId} | isNew={isNew}");
 
-            using (var request = new UnityWebRequest($"{_config.FirestoreBaseUrl}/{docPath}?key={_config.apiKey}", "PATCH"))
+            // PATCH without updateMask replaces the whole doc and would wipe playerName
+            using (var request = new UnityWebRequest(url, "PATCH"))
             {
                 byte[] bodyRaw = Encoding.UTF8.GetBytes(body);
                 request.uploadHandler   = new UploadHandlerRaw(bodyRaw);
@@ -57,6 +60,48 @@ namespace GameHub.Analytics
                 else
                     LogError($"✗ Profile upsert failed: {request.error}");
 
+                onComplete?.Invoke(ok);
+            }
+        }
+
+        /// <summary>Returns saved name, "" if none on server, null on network error.</summary>
+        public IEnumerator FetchPlayerName(Action<string> onComplete)
+        {
+            string url = $"{_config.FirestoreBaseUrl}/{PlayerDoc}?key={_config.apiKey}&mask.fieldPaths=playerName";
+            using (var request = UnityWebRequest.Get(url))
+            {
+                request.timeout = Mathf.RoundToInt(_config.requestTimeoutSeconds);
+                yield return request.SendWebRequest();
+
+                if (request.result == UnityWebRequest.Result.Success)
+                    onComplete?.Invoke(ExtractString(request.downloadHandler.text, "playerName"));
+                else if (request.responseCode == 404)
+                    onComplete?.Invoke("");
+                else
+                {
+                    LogError($"✗ Fetch player name failed: {request.error}");
+                    onComplete?.Invoke(null);
+                }
+            }
+        }
+
+        public IEnumerator SavePlayerName(string playerName, Action<bool> onComplete = null)
+        {
+            string url  = $"{_config.FirestoreBaseUrl}/{PlayerDoc}?key={_config.apiKey}&updateMask.fieldPaths=playerName";
+            string body = $"{{\"fields\":{{\"playerName\":{{\"stringValue\":\"{EscapeJson(playerName)}\"}}}}}}";
+
+            using (var request = new UnityWebRequest(url, "PATCH"))
+            {
+                request.uploadHandler   = new UploadHandlerRaw(Encoding.UTF8.GetBytes(body));
+                request.downloadHandler = new DownloadHandlerBuffer();
+                request.SetRequestHeader("Content-Type", "application/json");
+                request.timeout = Mathf.RoundToInt(_config.requestTimeoutSeconds);
+
+                yield return request.SendWebRequest();
+
+                bool ok = request.result == UnityWebRequest.Result.Success;
+                if (ok) Log($"✓ Player name saved: {playerName}");
+                else    LogError($"✗ Save player name failed: {request.error}");
                 onComplete?.Invoke(ok);
             }
         }
@@ -96,7 +141,7 @@ namespace GameHub.Analytics
                 yield break;
             }
 
-            string url = $"{_config.FirestoreBaseUrl}/players/{_playerId}/missions/{missionId}?key={_config.apiKey}";
+            string url = $"{_config.FirestoreBaseUrl}/{PlayerDoc}/missions/{missionId}?key={_config.apiKey}";
             Log($"Fetching stats → player={_playerId} | mission={missionId}");
 
             using (var request = UnityWebRequest.Get(url))
@@ -143,8 +188,8 @@ namespace GameHub.Analytics
             (string field, object value) increment2 = default,
             Action<bool> onComplete = null)
         {
-            string docPath = $"projects/{_config.CleanProjectId}/databases/(default)/documents" +
-                             $"/players/{_playerId}/missions/{missionId}";
+            string docPath = $"projects/{_config.CleanProjectId}/databases/(default)/documents/" +
+                             $"{PlayerDoc}/missions/{missionId}";
 
             string url  = $"https://firestore.googleapis.com/v1/projects/{_config.CleanProjectId}" +
                           $"/databases/(default)/documents:commit?key={_config.CleanApiKey}";
@@ -178,8 +223,8 @@ namespace GameHub.Analytics
         private IEnumerator CommitCompletionIncrement(string missionId, float playTime, bool isNewBest,
             Action<bool> onComplete = null)
         {
-            string docPath = $"projects/{_config.CleanProjectId}/databases/(default)/documents" +
-                             $"/players/{_playerId}/missions/{missionId}";
+            string docPath = $"projects/{_config.CleanProjectId}/databases/(default)/documents/" +
+                             $"{PlayerDoc}/missions/{missionId}";
 
             string url  = $"https://firestore.googleapis.com/v1/projects/{_config.CleanProjectId}" +
                           $"/databases/(default)/documents:commit?key={_config.CleanApiKey}";
@@ -421,7 +466,7 @@ namespace GameHub.Analytics
         private static string EscapeJson(string s)
         {
             if (string.IsNullOrEmpty(s)) return "";
-            return s.Replace("\\", "\\\\").Replace("\"", "\\\"").Replace("\n", "\\n");
+            return s.Replace("\\", "\\\\").Replace("\"", "\\\"").Replace("\n", "\\n").Replace("\r", "\\r").Replace("\t", "\\t");
         }
 
         private void Log(string msg)

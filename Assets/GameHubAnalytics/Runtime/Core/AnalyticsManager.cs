@@ -97,7 +97,7 @@ namespace GameHub.Analytics
             _playerData      = new PlayerDataManager(config, _currentPlayerId);
             _initialized     = true;
 
-            Debug.Log($"[Analytics] Initialized | game={config.gameId} | player={_currentPlayerId} | session={SessionManager.SessionId}");
+            Debug.Log($"[Analytics] Initialized | game={config.CleanGameId} | player={_currentPlayerId} | session={SessionManager.SessionId}");
 
             if (!(_config != null && _config.disableAllInEditor && Application.isEditor))
             {
@@ -208,6 +208,38 @@ namespace GameHub.Analytics
         }
 
         public string GetPlayerId() => _currentPlayerId;
+
+        private const string PlayerNameKey = "GH_Analytics_PlayerName";
+
+        public string PlayerName => PlayerPrefs.GetString(PlayerNameKey, "");
+
+        /// <summary>Local cache first, then Firestore (playerId is device-derived, so it survives reinstall). "" = not set, null = network error.</summary>
+        public void GetPlayerName(Action<string> onComplete)
+        {
+            if (!string.IsNullOrEmpty(PlayerName)) { onComplete?.Invoke(PlayerName); return; }
+            if (!CheckInitialized() || (_config.disableAllInEditor && Application.isEditor)) { onComplete?.Invoke(""); return; }
+
+            StartCoroutine(_playerData.FetchPlayerName(name =>
+            {
+                if (!string.IsNullOrEmpty(name))
+                {
+                    PlayerPrefs.SetString(PlayerNameKey, name);
+                    PlayerPrefs.Save();
+                }
+                onComplete?.Invoke(name);
+            }));
+        }
+
+        public void SetPlayerName(string playerName)
+        {
+            PlayerPrefs.SetString(PlayerNameKey, playerName);
+            PlayerPrefs.Save();
+            if (!CheckInitialized() || (_config.disableAllInEditor && Application.isEditor)) return;
+            StartCoroutine(_playerData.SavePlayerName(playerName));
+        }
+
+        public void LogRateMission(string missionId, int stars) =>
+            LogCustomEvent("rate_mission", missionId, new Dictionary<string, object> { { "stars", stars } });
 
         public string GetSessionId() => SessionManager.SessionId;
 

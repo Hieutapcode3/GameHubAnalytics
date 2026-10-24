@@ -33,10 +33,26 @@ namespace GamePlay
         private GUIStyle _statsLabelStyle;
         private GUIStyle _miniLabelStyle;
         private GUIStyle _statusBoxStyle;
+        private GUIStyle _nameFieldStyle;
+        private GUIStyle _starStyle;
+
+        private const int MaxNameLength = 20;
+        private bool _showNamePopup;
+        private string _nameInput = "";
+
+        private bool _ratingDone;
+        private int _rating;
+        private bool _draggingStars;
 
         private void Awake()
         {
             _manager = GetComponent<LevelManager>();
+        }
+
+        private void Start()
+        {
+            // shortcut: a network error (null) also shows the popup and the new name overwrites the server one; add a retry if that matters
+            AnalyticsManager.Instance.GetPlayerName(name => _showNamePopup = string.IsNullOrEmpty(name));
         }
 
         private void OnGUI()
@@ -55,16 +71,27 @@ namespace GamePlay
             float virtualW = refWidth;
             float virtualH = Screen.height / scale;
 
+            // IMGUI gives clicks to earlier controls first, so the name popup is drawn alone to block the rest
+            if (_showNamePopup)
+            {
+                DrawNamePopup(virtualW, virtualH);
+                GUI.matrix = oldMatrix;
+                return;
+            }
+
             DrawTopHUD(virtualW, virtualH);
 
             if (_manager.State == LevelState.Playing)
             {
+                _ratingDone = false;
+                _rating = 0;
                 DrawGameplayButtons(virtualW, virtualH);
             }
 
             if (_manager.State == LevelState.Won || _manager.State == LevelState.Lost)
             {
-                DrawResultPanel(virtualW, virtualH);
+                if (_ratingDone) DrawResultPanel(virtualW, virtualH);
+                else             DrawRatingPopup(virtualW, virtualH);
             }
 
             DrawBottomStatusBar(virtualW, virtualH);
@@ -157,7 +184,7 @@ namespace GamePlay
             GUILayout.EndArea();
         }
 
-        private void DrawResultPanel(float virtualW, float virtualH)
+        private void DrawBackdrop(float virtualW, float virtualH)
         {
             if (_backdropTex == null)
             {
@@ -166,6 +193,109 @@ namespace GamePlay
                 _backdropTex.Apply();
             }
             GUI.DrawTexture(new Rect(0, 0, virtualW, virtualH), _backdropTex);
+        }
+
+        private void DrawNamePopup(float virtualW, float virtualH)
+        {
+            DrawBackdrop(virtualW, virtualH);
+
+            float panelW = virtualW - 50f;
+            float panelH = 300f;
+            GUILayout.BeginArea(new Rect(25f, Mathf.Max(30f, (virtualH - panelH) * 0.5f), panelW, panelH), _panelBgStyle);
+            GUILayout.BeginVertical();
+
+            GUILayout.Label("👋 CHÀO MỪNG!", _panelTitleWinStyle);
+            GUILayout.Label("Nhập tên của bạn để bắt đầu:", _sectionHeaderStyle);
+            GUILayout.Space(14);
+
+            _nameInput = GUILayout.TextField(_nameInput, MaxNameLength, _nameFieldStyle, GUILayout.Height(52));
+            GUILayout.Space(18);
+
+            string trimmed = _nameInput.Trim();
+            GUI.enabled = trimmed.Length > 0;
+            GUI.backgroundColor = new Color(0.2f, 0.88f, 0.38f);
+            if (GUILayout.Button("✅ XÁC NHẬN", _actionButtonGreen, GUILayout.Height(60)))
+            {
+                AnalyticsManager.Instance.SetPlayerName(trimmed);
+                _showNamePopup = false;
+            }
+            GUI.enabled = true;
+            GUI.backgroundColor = Color.white;
+
+            GUILayout.EndVertical();
+            GUILayout.EndArea();
+        }
+
+        private void DrawRatingPopup(float virtualW, float virtualH)
+        {
+            DrawBackdrop(virtualW, virtualH);
+
+            float panelW = virtualW - 50f;
+            float panelH = 360f;
+            GUILayout.BeginArea(new Rect(25f, Mathf.Max(30f, (virtualH - panelH) * 0.5f), panelW, panelH), _panelBgStyle);
+            GUILayout.BeginVertical();
+
+            GUILayout.Label("⭐ ĐÁNH GIÁ MÀN CHƠI", _panelTitleWinStyle);
+            GUILayout.Label($"Bạn thấy {_manager.MissionId} thế nào?", _sectionHeaderStyle);
+            GUILayout.Space(10);
+
+            DrawStarRow(panelW - 48f);
+
+            GUILayout.Label(_rating > 0 ? $"{_rating}/5 sao" : "Chạm hoặc vuốt để chọn sao", _sectionHeaderStyle);
+            GUILayout.Space(14);
+
+            GUI.enabled = _rating > 0;
+            GUI.backgroundColor = new Color(0.2f, 0.88f, 0.38f);
+            if (GUILayout.Button("📨 GỬI ĐÁNH GIÁ", _actionButtonGreen, GUILayout.Height(58)))
+            {
+                AnalyticsManager.Instance.LogRateMission(_manager.MissionId, _rating);
+                _ratingDone = true;
+            }
+            GUI.enabled = true;
+
+            GUILayout.Space(8);
+            GUI.backgroundColor = new Color(0.7f, 0.72f, 0.78f);
+            if (GUILayout.Button("BỎ QUA", _actionButtonGrey, GUILayout.Height(48)))
+            {
+                _ratingDone = true;
+            }
+            GUI.backgroundColor = Color.white;
+
+            GUILayout.EndVertical();
+            GUILayout.EndArea();
+        }
+
+        // Tap star N to rate N, or press and drag across the row; the drag keeps tracking outside the row, clamped to 1..5.
+        private void DrawStarRow(float width)
+        {
+            const float starSize = 64f;
+            Rect slot = GUILayoutUtility.GetRect(width, starSize);
+            var row = new Rect(slot.x + (slot.width - starSize * 5f) * 0.5f, slot.y, starSize * 5f, starSize);
+
+            Event e = Event.current;
+            if (e.type == EventType.MouseDown && row.Contains(e.mousePosition))
+                _draggingStars = true;
+
+            if (_draggingStars && (e.type == EventType.MouseDown || e.type == EventType.MouseDrag))
+            {
+                _rating = Mathf.Clamp(Mathf.FloorToInt((e.mousePosition.x - row.x) / starSize) + 1, 1, 5);
+                e.Use();
+            }
+
+            if (e.rawType == EventType.MouseUp)
+                _draggingStars = false;
+
+            for (int i = 0; i < 5; i++)
+            {
+                GUI.color = i < _rating ? new Color(1f, 0.82f, 0.1f) : new Color(0.4f, 0.4f, 0.45f);
+                GUI.Label(new Rect(row.x + i * starSize, row.y, starSize, starSize), "★", _starStyle);
+            }
+            GUI.color = Color.white;
+        }
+
+        private void DrawResultPanel(float virtualW, float virtualH)
+        {
+            DrawBackdrop(virtualW, virtualH);
 
             float panelW = virtualW - 50f;
             float panelH = 500f;
@@ -281,7 +411,8 @@ namespace GamePlay
                 : "<color=#66BB6A>[Mobile/Emulator: Live Firebase]</color>";
 
             GUI.color = Color.white;
-            GUILayout.Label($"🔥 Device: {playerId}  {platformTag}", _miniLabelStyle);
+            string playerName = AnalyticsManager.Instance != null ? AnalyticsManager.Instance.PlayerName : "";
+            GUILayout.Label($"👤 {playerName} | 🔥 Device: {playerId}  {platformTag}", _miniLabelStyle);
 
             GUILayout.Label($"📦 Offline Queue: {queueCount} | {_manager.LastStatusMessage}", _miniLabelStyle);
 
@@ -416,6 +547,19 @@ namespace GamePlay
             {
                 fontSize = 12,
                 normal   = { textColor = new Color(0.85f, 0.85f, 0.85f) }
+            };
+
+            _nameFieldStyle = new GUIStyle(GUI.skin.textField)
+            {
+                fontSize  = 20,
+                alignment = TextAnchor.MiddleCenter
+            };
+
+            _starStyle = new GUIStyle(GUI.skin.label)
+            {
+                fontSize  = 52,
+                alignment = TextAnchor.MiddleCenter,
+                normal    = { textColor = Color.white }
             };
 
             _stylesReady = true;

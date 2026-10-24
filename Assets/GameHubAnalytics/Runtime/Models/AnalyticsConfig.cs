@@ -1,3 +1,4 @@
+using System.Text.RegularExpressions;
 using UnityEngine;
 
 namespace GameHub.Analytics
@@ -13,8 +14,8 @@ namespace GameHub.Analytics
         public string projectId = "";
 
         [Header("Game Settings")]
-        [Tooltip("Unique identifier for this game in Firestore")]
-        public string gameId = "my-game";
+        [Tooltip("Unique identifier for this game in Firestore. All data is stored under analytics/{gameId}/ so many games can share one Firebase project. Empty = Product Name.")]
+        public string gameId = "";
 
         [Header("Behavior")]
         [Tooltip("Master switch for analytics. When false, events are ignored.")]
@@ -61,15 +62,18 @@ namespace GameHub.Analytics
 
         public string CleanProjectId => projectId?.Trim() ?? "";
         public string CleanApiKey    => apiKey?.Trim() ?? "";
-        public string CleanGameId    => gameId?.Trim() ?? "";
+        // Used as a Firestore doc id inside URLs, so only keep URL/path-safe chars
+        public string CleanGameId    => Regex.Replace(string.IsNullOrWhiteSpace(gameId) ? Application.productName : gameId.Trim(), "[^A-Za-z0-9_-]", "-");
+
+        /// <summary>Per-game root document; every game in the same Firebase project gets its own subtree.</summary>
+        public string GameRoot => $"analytics/{CleanGameId}";
 
         public string FirestoreBaseUrl =>
             $"https://firestore.googleapis.com/v1/projects/{CleanProjectId}/databases/(default)/documents";
 
         public bool IsValid =>
             !string.IsNullOrWhiteSpace(apiKey) &&
-            !string.IsNullOrWhiteSpace(projectId) &&
-            !string.IsNullOrWhiteSpace(gameId);
+            !string.IsNullOrWhiteSpace(projectId);
 
         private void OnValidate()
         {
