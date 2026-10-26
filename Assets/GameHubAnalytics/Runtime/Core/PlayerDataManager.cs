@@ -106,6 +106,30 @@ namespace GameHub.Analytics
             }
         }
 
+        /// <summary>Stores the player's latest star rating (1-5) on analytics/{gameId}/players/{id}/missions/{missionId}.rating.</summary>
+        public IEnumerator SaveMissionRating(string missionId, int stars, Action<bool> onComplete = null)
+        {
+            string url  = $"{_config.FirestoreBaseUrl}/{PlayerDoc}/missions/{missionId}?key={_config.apiKey}" +
+                          "&updateMask.fieldPaths=rating&updateMask.fieldPaths=ratedAt";
+            string body = $"{{\"fields\":{{\"rating\":{{\"integerValue\":\"{stars}\"}}," +
+                          $"\"ratedAt\":{{\"stringValue\":\"{DateTime.UtcNow:o}\"}}}}}}";
+
+            using (var request = new UnityWebRequest(url, "PATCH"))
+            {
+                request.uploadHandler   = new UploadHandlerRaw(Encoding.UTF8.GetBytes(body));
+                request.downloadHandler = new DownloadHandlerBuffer();
+                request.SetRequestHeader("Content-Type", "application/json");
+                request.timeout = Mathf.RoundToInt(_config.requestTimeoutSeconds);
+
+                yield return request.SendWebRequest();
+
+                bool ok = request.result == UnityWebRequest.Result.Success;
+                if (ok) Log($"✓ Rating saved: {missionId} = {stars}★");
+                else    LogError($"✗ Save rating failed [{missionId}]: {request.error}");
+                onComplete?.Invoke(ok);
+            }
+        }
+
         public IEnumerator IncrementStarted(string missionId, Action<bool> onComplete = null)
         {
             yield return CommitIncrement(missionId,

@@ -47,12 +47,18 @@ namespace GamePlay
         private void Awake()
         {
             _manager = GetComponent<LevelManager>();
+            // Awake runs before every Start(), so LevelManager will wait until the name is resolved
+            _manager.HoldStart = true;
         }
 
         private void Start()
         {
             // shortcut: a network error (null) also shows the popup and the new name overwrites the server one; add a retry if that matters
-            AnalyticsManager.Instance.GetPlayerName(name => _showNamePopup = string.IsNullOrEmpty(name));
+            AnalyticsManager.Instance.GetPlayerName(name =>
+            {
+                _showNamePopup = string.IsNullOrEmpty(name);
+                if (!_showNamePopup) _manager.BeginLevel(); // already has a name -> start immediately
+            });
         }
 
         private void OnGUI()
@@ -88,10 +94,15 @@ namespace GamePlay
                 DrawGameplayButtons(virtualW, virtualH);
             }
 
-            if (_manager.State == LevelState.Won || _manager.State == LevelState.Lost)
+            if (_manager.State == LevelState.Won)
             {
+                // star rating is only asked after a win
                 if (_ratingDone) DrawResultPanel(virtualW, virtualH);
                 else             DrawRatingPopup(virtualW, virtualH);
+            }
+            else if (_manager.State == LevelState.Lost)
+            {
+                DrawResultPanel(virtualW, virtualH);
             }
 
             DrawBottomStatusBar(virtualW, virtualH);
@@ -218,6 +229,7 @@ namespace GamePlay
             {
                 AnalyticsManager.Instance.SetPlayerName(trimmed);
                 _showNamePopup = false;
+                _manager.BeginLevel(); // timer + start_mission only begin after the name is confirmed
             }
             GUI.enabled = true;
             GUI.backgroundColor = Color.white;

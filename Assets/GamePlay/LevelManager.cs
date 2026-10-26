@@ -35,6 +35,12 @@ namespace GamePlay
 
         public PlayerMissionStats CurrentStats { get; private set; }
 
+        /// <summary>
+        /// While true, Start() will NOT auto-load the level (no timer, no start_mission event).
+        /// GamePlayUI sets this in Awake and calls BeginLevel() once the player name is known.
+        /// </summary>
+        public bool HoldStart { get; set; }
+
         public int CurrentLevel => currentLevel;
         public LevelState State => state;
         public float PlayTime => playTime;
@@ -58,7 +64,17 @@ namespace GamePlay
                 AnalyticsManager.Instance.Initialize();
             }
 
-            if (autoStartOnAwake)
+            if (autoStartOnAwake && !HoldStart)
+            {
+                LoadLevel(currentLevel);
+            }
+        }
+
+        /// <summary>Releases the start hold and loads the current level (only if not started yet).</summary>
+        public void BeginLevel()
+        {
+            HoldStart = false;
+            if (autoStartOnAwake && state == LevelState.NotStarted)
             {
                 LoadLevel(currentLevel);
             }

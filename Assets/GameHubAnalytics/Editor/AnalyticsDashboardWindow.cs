@@ -38,10 +38,13 @@ namespace GameHub.Analytics.Editor
             public float  bestTime;
             public int    playerCount;
             public int    completedPlayers;
+            public int    ratingSum;    // sum of each player's latest star rating
+            public int    ratingCount;  // number of players who rated this level
 
             public float WinRate             => (completed + failed) > 0 ? (float)completed / (completed + failed) * 100f : 0f;
             public float CompleteRate        => playerCount > 0 ? (float)completedPlayers / playerCount * 100f : 0f;
             public float AttemptCompleteRate => started > 0 ? (float)completed / started * 100f : 0f;
+            public float AvgRating           => ratingCount > 0 ? (float)ratingSum / ratingCount : 0f;
             public float AvgPlayTime         => completed > 0 ? totalPlayTime / completed : (started > 0 ? totalPlayTime / started : 0f);
         }
 
@@ -55,6 +58,7 @@ namespace GameHub.Analytics.Editor
             public float  bestTime;
             public float  totalPlayTime;
             public string lastPlayed;
+            public int    rating;       // 0 = not rated, else 1-5 stars
 
             public float WinRate      => (completed + failed) > 0 ? (float)completed / (completed + failed) * 100f : 0f;
             public float CompleteRate => started > 0 ? (float)completed / started * 100f : 0f;
@@ -101,6 +105,8 @@ namespace GameHub.Analytics.Editor
         private readonly List<MissionRow> _missionRows = new List<MissionRow>();
         private readonly List<PlayerRow>  _playerRows  = new List<PlayerRow>();
         private readonly List<EventRow>   _eventRows   = new List<EventRow>();
+        // playerId -> playerName (from analytics/{gameId}/players/{playerId}.playerName); used to name Excel sheets
+        private readonly Dictionary<string, string> _playerNames = new Dictionary<string, string>();
 
         // Styles
         private bool     _stylesReady;
@@ -225,9 +231,9 @@ namespace GameHub.Analytics.Editor
                 }
             }
 
-            // Export to Excel (.xlsx) with multi-sheet support
+            // Export ALL (missions + every player) to one multi-sheet .xlsx
             GUI.backgroundColor = new Color(0.4f, 0.9f, 0.5f);
-            if (GUILayout.Button("📊 Xuất Excel (.xlsx)", EditorStyles.toolbarButton, GUILayout.Width(135)))
+            if (GUILayout.Button("📊 Xuất Excel (Tất cả)", EditorStyles.toolbarButton, GUILayout.Width(135)))
                 ExportToExcel();
             GUI.backgroundColor = Color.white;
 
@@ -315,8 +321,8 @@ namespace GameHub.Analytics.Editor
 
         private void DrawMissionsTable()
         {
-            float[] widths = { 150f, 70f, 85f, 70f, 95f, 95f, 100f, 90f, 80f };
-            string[] headers = { "Màn Chơi", "Bắt Đầu", "Vượt Qua", "Thất Bại", "Win Rate %", "Hoàn Thành %", "Thời Gian TB", "Kỷ Lục", "Người Chơi" };
+            float[] widths = { 150f, 70f, 85f, 70f, 95f, 95f, 100f, 90f, 80f, 110f };
+            string[] headers = { "Màn Chơi", "Bắt Đầu", "Vượt Qua", "Thất Bại", "Win Rate %", "Hoàn Thành %", "Thời Gian TB", "Kỷ Lục", "Người Chơi", "Star Rate ★" };
 
             DrawTableHeader(headers, widths);
 
@@ -348,6 +354,7 @@ namespace GameHub.Analytics.Editor
                     EditorGUILayout.LabelField(FormatPlayTime(r.AvgPlayTime), _tableCellStyle, GUILayout.Width(widths[6]));
                     EditorGUILayout.LabelField(r.bestTime > 0 ? FormatPlayTime(r.bestTime) : "-", _tableCellStyle, GUILayout.Width(widths[7]));
                     EditorGUILayout.LabelField(r.playerCount.ToString(), _tableCellStyle, GUILayout.Width(widths[8]));
+                    EditorGUILayout.LabelField(r.ratingCount > 0 ? $"{r.AvgRating:F1} ★ ({r.ratingCount})" : "-", _tableCellStyle, GUILayout.Width(widths[9]));
 
                     EditorGUILayout.EndHorizontal();
                     alt = !alt;
@@ -403,8 +410,8 @@ namespace GameHub.Analytics.Editor
 
         private void DrawGroupedPlayersTable(List<IGrouping<string, PlayerRow>> groups)
         {
-            float[] widths = { 150f, 65f, 65f, 65f, 90f, 95f, 85f, 105f, 150f };
-            string[] headers = { "Màn Chơi", "Bắt Đầu", "Thắng", "Thua", "Win Rate %", "Hoàn Thành %", "Kỷ Lục", "Thời Lượng", "Lần Chơi Cuối" };
+            float[] widths = { 150f, 65f, 65f, 65f, 90f, 95f, 85f, 105f, 150f, 80f };
+            string[] headers = { "Màn Chơi", "Bắt Đầu", "Thắng", "Thua", "Win Rate %", "Hoàn Thành %", "Kỷ Lục", "Thời Lượng", "Lần Chơi Cuối", "Star Rate ★" };
 
             foreach (var group in groups)
             {
@@ -485,6 +492,7 @@ namespace GameHub.Analytics.Editor
                         EditorGUILayout.LabelField(r.bestTime > 0 ? FormatPlayTime(r.bestTime) : "-", _tableCellStyle, GUILayout.Width(widths[6]));
                         EditorGUILayout.LabelField(FormatPlayTime(r.totalPlayTime), _tableCellStyle, GUILayout.Width(widths[7]));
                         EditorGUILayout.LabelField(FormatTimestamp(r.lastPlayed), _tableCellStyle, GUILayout.Width(widths[8]));
+                        EditorGUILayout.LabelField(r.rating > 0 ? $"{r.rating} ★" : "-", _tableCellStyle, GUILayout.Width(widths[9]));
 
                         EditorGUILayout.EndHorizontal();
                         alt = !alt;
@@ -498,8 +506,8 @@ namespace GameHub.Analytics.Editor
 
         private void DrawFlatPlayersTable(List<PlayerRow> filtered)
         {
-            float[] widths = { 170f, 110f, 65f, 65f, 65f, 90f, 95f, 80f, 95f, 140f };
-            string[] headers = { "Player ID (Thiết bị)", "Màn Chơi", "Bắt Đầu", "Thắng", "Thua", "Win Rate %", "Hoàn Thành %", "Kỷ Lục", "Thời Lượng", "Lần Chơi Cuối" };
+            float[] widths = { 170f, 110f, 65f, 65f, 65f, 90f, 95f, 80f, 95f, 140f, 80f };
+            string[] headers = { "Player ID (Thiết bị)", "Màn Chơi", "Bắt Đầu", "Thắng", "Thua", "Win Rate %", "Hoàn Thành %", "Kỷ Lục", "Thời Lượng", "Lần Chơi Cuối", "Star Rate ★" };
 
             DrawTableHeader(headers, widths);
 
@@ -522,6 +530,7 @@ namespace GameHub.Analytics.Editor
                 EditorGUILayout.LabelField(r.bestTime > 0 ? FormatPlayTime(r.bestTime) : "-", _tableCellStyle, GUILayout.Width(widths[7]));
                 EditorGUILayout.LabelField(FormatPlayTime(r.totalPlayTime), _tableCellStyle, GUILayout.Width(widths[8]));
                 EditorGUILayout.LabelField(FormatTimestamp(r.lastPlayed), _tableCellStyle, GUILayout.Width(widths[9]));
+                EditorGUILayout.LabelField(r.rating > 0 ? $"{r.rating} ★" : "-", _tableCellStyle, GUILayout.Width(widths[10]));
 
                 EditorGUILayout.EndHorizontal();
                 alt = !alt;
@@ -708,11 +717,65 @@ namespace GameHub.Analytics.Editor
                     ParseFirestoreEvents(request.downloadHandler.text);
                 }
 
+                FetchRealPlayerNames();
+            };
+        }
+
+        // Player profile docs (analytics/{gameId}/players/{playerId}) hold the "playerName" the player typed in-game.
+        private void FetchRealPlayerNames()
+        {
+            string url = $"{_config.FirestoreBaseUrl}/{_config.GameRoot}:runQuery?key={_config.CleanApiKey}";
+            string body = "{\"structuredQuery\":{\"from\":[{\"collectionId\":\"players\",\"allDescendants\":true}]}}";
+
+            var request = new UnityWebRequest(url, "POST");
+            request.uploadHandler = new UploadHandlerRaw(Encoding.UTF8.GetBytes(body));
+            request.downloadHandler = new DownloadHandlerBuffer();
+            request.SetRequestHeader("Content-Type", "application/json");
+            request.timeout = 15;
+
+            var op = request.SendWebRequest();
+            op.completed += _ =>
+            {
+                _playerNames.Clear();
+                if (request.result == UnityWebRequest.Result.Success)
+                    ParseFirestorePlayerNames(request.downloadHandler.text);
+
                 _isUsingRealData = true;
-                _statusMsg = $"✅ Đã tải dữ liệu thành công từ Firestore! ({_playerRows.Count} bản ghi player, {_missionRows.Count} màn chơi, {_eventRows.Count} sự kiện)";
+                _statusMsg = $"✅ Đã tải dữ liệu thành công từ Firestore! ({_playerRows.Count} bản ghi player, {_missionRows.Count} màn chơi, {_eventRows.Count} sự kiện, {_playerNames.Count} tên người chơi)";
                 _statusIsError = false;
                 Repaint();
             };
+        }
+
+        private void ParseFirestorePlayerNames(string json)
+        {
+            int searchIdx = 0;
+            while (true)
+            {
+                int docIdx = json.IndexOf("\"document\":", searchIdx, StringComparison.Ordinal);
+                if (docIdx < 0) break;
+
+                int nextDoc = json.IndexOf("\"document\":", docIdx + 11, StringComparison.Ordinal);
+                string docBlock = nextDoc > 0 ? json.Substring(docIdx, nextDoc - docIdx) : json.Substring(docIdx);
+                searchIdx = docIdx + 11;
+
+                string docName = ExtractDocName(docBlock);
+                int pIdx = docName.LastIndexOf("/players/", StringComparison.Ordinal);
+                if (pIdx < 0) continue;
+
+                string playerId = docName.Substring(pIdx + 9);
+                if (playerId.Contains("/")) continue; // not a player profile doc
+
+                string name = ExtractFieldValue(docBlock, "playerName");
+                if (!string.IsNullOrWhiteSpace(name))
+                    _playerNames[playerId] = name.Trim();
+            }
+        }
+
+        // Sheet name for a player: their in-game name, falling back to the device id.
+        private string GetPlayerSheetName(string playerId)
+        {
+            return _playerNames.TryGetValue(playerId, out var n) && !string.IsNullOrWhiteSpace(n) ? n : playerId;
         }
 
         private void ParseFirestoreMissionStats(string json)
@@ -758,7 +821,8 @@ namespace GameHub.Analytics.Editor
                     failed        = ExtractInt(docBlock, "failed"),
                     bestTime      = ExtractFloat(docBlock, "bestTime"),
                     totalPlayTime = ExtractFloat(docBlock, "totalPlayTime"),
-                    lastPlayed    = ExtractFieldValue(docBlock, "lastPlayed")
+                    lastPlayed    = ExtractFieldValue(docBlock, "lastPlayed"),
+                    rating        = Mathf.Clamp(ExtractInt(docBlock, "rating"), 0, 5)
                 };
                 if (string.IsNullOrEmpty(pRow.lastPlayed))
                     pRow.lastPlayed = ExtractFieldValue(docBlock, "lastPlayed_str");
@@ -777,6 +841,11 @@ namespace GameHub.Analytics.Editor
                 mRow.failed        += pRow.failed;
                 mRow.totalPlayTime += pRow.totalPlayTime;
                 mRow.playerCount++;
+                if (pRow.rating > 0)
+                {
+                    mRow.ratingSum += pRow.rating;
+                    mRow.ratingCount++;
+                }
                 if (pRow.completed > 0)
                     mRow.completedPlayers++;
 
@@ -827,7 +896,10 @@ namespace GameHub.Analytics.Editor
 
         private void ExportToExcel()
         {
-            string defaultName = $"GameHub_Analytics_{_activeTab}_{DateTime.Now:yyyyMMdd_HHmmss}.xlsx";
+            // One click exports EVERYTHING (independent of the active tab / search filter):
+            //   Sheet 1      : "Màn Chơi" - all missions
+            //   Sheet 2..N   : one sheet per Player (rows = missions that player played)
+            string defaultName = $"GameHub_Analytics_{DateTime.Now:yyyyMMdd_HHmmss}.xlsx";
             string path = EditorUtility.SaveFilePanel("Xuất file Excel (.xlsx)", "", defaultName, "xlsx");
             if (string.IsNullOrEmpty(path)) return;
 
@@ -835,122 +907,67 @@ namespace GameHub.Analytics.Editor
             {
                 var sheets = new List<XlsxSheet>();
 
-                switch (_activeTab)
+                // ---- Sheet 1: all missions ----
+                var missionSheet = new XlsxSheet
                 {
-                    case TabView.Missions:
+                    Name = "Màn Chơi",
+                    Headers = new List<string> { "Màn Chơi", "Số Lượt Bắt Đầu", "Hoàn Thành (Thắng)", "Thất Bại (Thua)", "Tỉ Lệ Thắng (%)", "Tỉ Lệ Hoàn Thành (%)", "Thời Gian TB", "Kỷ Lục", "Số Thiết Bị Test", "Star Rate (TB ★)" }
+                };
+                foreach (var r in _missionRows.OrderBy(x => x.missionId, StringComparer.OrdinalIgnoreCase))
+                {
+                    missionSheet.Rows.Add(new List<string>
                     {
-                        var sheet = new XlsxSheet
-                        {
-                            Name = "Màn Chơi",
-                            Headers = new List<string> { "Màn Chơi", "Số Lượt Bắt Đầu", "Hoàn Thành (Thắng)", "Thất Bại (Thua)", "Tỉ Lệ Thắng (%)", "Tỉ Lệ Hoàn Thành (%)", "Thời Gian TB", "Kỷ Lục", "Số Thiết Bị Test" }
-                        };
-                        foreach (var r in GetFilteredMissions())
-                        {
-                            sheet.Rows.Add(new List<string>
-                            {
-                                r.missionId,
-                                r.started.ToString(),
-                                r.completed.ToString(),
-                                r.failed.ToString(),
-                                $"{r.WinRate:F1}%",
-                                $"{r.CompleteRate:F1}%",
-                                FormatPlayTime(r.AvgPlayTime),
-                                r.bestTime > 0 ? FormatPlayTime(r.bestTime) : "-",
-                                r.playerCount.ToString()
-                            });
-                        }
-                        sheets.Add(sheet);
-                        break;
-                    }
+                        r.missionId,
+                        r.started.ToString(),
+                        r.completed.ToString(),
+                        r.failed.ToString(),
+                        $"{r.WinRate:F1}%",
+                        $"{r.CompleteRate:F1}%",
+                        FormatPlayTime(r.AvgPlayTime),
+                        r.bestTime > 0 ? FormatPlayTime(r.bestTime) : "-",
+                        r.playerCount.ToString(),
+                        r.ratingCount > 0 ? r.AvgRating.ToString("F1", CultureInfo.InvariantCulture) : "-"
+                    });
+                }
+                sheets.Add(missionSheet);
 
-                    case TabView.Players:
+                // ---- Sheet 2..N: one sheet per player ----
+                var groups = _playerRows
+                    .GroupBy(x => x.playerId)
+                    .OrderBy(g => GetPlayerSheetName(g.Key), StringComparer.OrdinalIgnoreCase)
+                    .ToList();
+
+                // If two players share a name, add a short id so their sheets stay distinguishable
+                var nameCount = groups.GroupBy(g => GetPlayerSheetName(g.Key).ToLowerInvariant())
+                                      .ToDictionary(x => x.Key, x => x.Count());
+
+                foreach (var g in groups)
+                {
+                    var playerSheet = new XlsxSheet
                     {
-                        var filtered = GetFilteredPlayers();
-                        var groups = filtered.GroupBy(x => x.playerId).ToList();
+                        Name = nameCount[GetPlayerSheetName(g.Key).ToLowerInvariant()] > 1
+                            ? $"{GetPlayerSheetName(g.Key)} ({(g.Key.Length > 4 ? g.Key.Substring(0, 4) : g.Key)})"
+                            : GetPlayerSheetName(g.Key),
+                        Headers = new List<string> { "Màn Chơi", "Bắt Đầu", "Thắng", "Thua", "Win Rate (%)", "Hoàn Thành (%)", "Kỷ Lục", "Thời Lượng", "Lần Chơi Cuối", "Star Rate (★)" }
+                    };
 
-                        // Sheet 1: Overview
-                        var overviewSheet = new XlsxSheet
-                        {
-                            Name = "Tổng Hợp",
-                            Headers = new List<string> { "Player ID (Thiết Bị)", "Số Màn Chơi", "Bắt Đầu", "Thắng", "Thua", "Win Rate TB (%)", "Hoàn Thành TB (%)", "Tổng Thời Lượng", "Lần Chơi Cuối" }
-                        };
-
-                        foreach (var g in groups)
-                        {
-                            int totalStarted = g.Sum(x => x.started);
-                            int totalCompleted = g.Sum(x => x.completed);
-                            int totalFailed = g.Sum(x => x.failed);
-                            float totalTime = g.Sum(x => x.totalPlayTime);
-                            float winRate = (totalCompleted + totalFailed) > 0 ? (float)totalCompleted / (totalCompleted + totalFailed) * 100f : 0f;
-                            float completeRate = totalStarted > 0 ? (float)totalCompleted / totalStarted * 100f : 0f;
-
-                            overviewSheet.Rows.Add(new List<string>
-                            {
-                                g.Key,
-                                g.Count().ToString(),
-                                totalStarted.ToString(),
-                                totalCompleted.ToString(),
-                                totalFailed.ToString(),
-                                $"{winRate:F1}%",
-                                $"{completeRate:F1}%",
-                                FormatPlayTime(totalTime),
-                                g.Max(x => x.lastPlayed)
-                            });
-                        }
-                        sheets.Add(overviewSheet);
-
-                        // Individual sheet for each Player
-                        foreach (var g in groups)
-                        {
-                            var playerSheet = new XlsxSheet
-                            {
-                                Name = g.Key,
-                                Headers = new List<string> { "Màn Chơi", "Bắt Đầu", "Thắng", "Thua", "Win Rate (%)", "Hoàn Thành (%)", "Kỷ Lục", "Thời Lượng", "Lần Chơi Cuối" }
-                            };
-
-                            foreach (var r in g)
-                            {
-                                playerSheet.Rows.Add(new List<string>
-                                {
-                                    r.missionId,
-                                    r.started.ToString(),
-                                    r.completed.ToString(),
-                                    r.failed.ToString(),
-                                    $"{r.WinRate:F1}%",
-                                    $"{r.CompleteRate:F1}%",
-                                    r.bestTime > 0 ? FormatPlayTime(r.bestTime) : "-",
-                                    FormatPlayTime(r.totalPlayTime),
-                                    FormatTimestamp(r.lastPlayed)
-                                });
-                            }
-                            sheets.Add(playerSheet);
-                        }
-                        break;
-                    }
-
-                    case TabView.Events:
+                    foreach (var r in g.OrderBy(x => x.missionId, StringComparer.OrdinalIgnoreCase))
                     {
-                        var sheet = new XlsxSheet
+                        playerSheet.Rows.Add(new List<string>
                         {
-                            Name = "Sự Kiện",
-                            Headers = new List<string> { "Thời Gian", "Tên Sự Kiện", "Màn Chơi", "Player ID", "Thời Lượng (giây)", "Nền Tảng", "Tên Thiết Bị" }
-                        };
-                        foreach (var r in GetFilteredEvents())
-                        {
-                            sheet.Rows.Add(new List<string>
-                            {
-                                r.timestamp,
-                                r.eventType,
-                                r.missionId,
-                                r.playerId,
-                                r.playTime.ToString("F1", CultureInfo.InvariantCulture),
-                                r.platform,
-                                r.deviceModel
-                            });
-                        }
-                        sheets.Add(sheet);
-                        break;
+                            r.missionId,
+                            r.started.ToString(),
+                            r.completed.ToString(),
+                            r.failed.ToString(),
+                            $"{r.WinRate:F1}%",
+                            $"{r.CompleteRate:F1}%",
+                            r.bestTime > 0 ? FormatPlayTime(r.bestTime) : "-",
+                            FormatPlayTime(r.totalPlayTime),
+                            FormatTimestamp(r.lastPlayed),
+                            r.rating > 0 ? r.rating.ToString() : "-"
+                        });
                     }
+                    sheets.Add(playerSheet);
                 }
 
                 SaveXlsxFile(path, sheets);
@@ -958,10 +975,7 @@ namespace GameHub.Analytics.Editor
                 bool openNow = EditorUtility.DisplayDialog(
                     "Xuất File Excel (.xlsx) Thành Công! 🎉",
                     $"Đã lưu file thành công tại:\n{path}\n\n" +
-                    (_activeTab == TabView.Players 
-                        ? $"✨ Đã chia thành {sheets.Count} trang tính (1 sheet 'Tổng Hợp' + {sheets.Count - 1} sheet riêng cho từng Player)!\n\n" +
-                          "• Khi mở bằng Excel hoặc Google Sheets, mỗi Player nằm ở một Trang tính (Sheet Tab) riêng biệt.\n"
-                        : "") +
+                    $"✨ Gồm {sheets.Count} trang tính: 1 sheet 'Màn Chơi' + {groups.Count} sheet riêng cho từng Player (đặt tên theo tên người chơi).\n\n" +
                     "Bạn có muốn mở file này ngay không?",
                     "Mở File",
                     "Mở Thư Mục Chứa");
@@ -1090,7 +1104,7 @@ namespace GameHub.Analytics.Editor
             EditorGUIUtility.systemCopyBuffer = sb.ToString();
 
             string helpTip = _activeTab == TabView.Players
-                ? "💡 MẸO TRANG TÍNH RIÊNG (SHEETS):\nĐể mỗi Player nằm ở một Trang tính (Tab) riêng biệt trên Google Sheets:\n• Hãy dùng nút '📊 Xuất Excel (.xlsx)'.\n• Trên Google Sheets, chọn Tệp > Nhập (File > Import) và tải file .xlsx lên.\n\n"
+                ? "💡 MẸO TRANG TÍNH RIÊNG (SHEETS):\nĐể mỗi Player nằm ở một Trang tính (Tab) riêng biệt trên Google Sheets:\n• Hãy dùng nút '📊 Xuất Excel (Tất cả)'.\n• Trên Google Sheets, chọn Tệp > Nhập (File > Import) và tải file .xlsx lên.\n\n"
                 : "";
 
             bool openSheets = EditorUtility.DisplayDialog(
@@ -1319,6 +1333,7 @@ namespace GameHub.Analytics.Editor
                     6 => a.AvgPlayTime.CompareTo(b.AvgPlayTime),
                     7 => a.bestTime.CompareTo(b.bestTime),
                     8 => a.playerCount.CompareTo(b.playerCount),
+                    9 => a.AvgRating.CompareTo(b.AvgRating),
                     _ => 0
                 };
                 return _sortAsc ? cmp : -cmp;
@@ -1349,6 +1364,7 @@ namespace GameHub.Analytics.Editor
                     6 => a.CompleteRate.CompareTo(b.CompleteRate),
                     7 => a.bestTime.CompareTo(b.bestTime),
                     8 => a.totalPlayTime.CompareTo(b.totalPlayTime),
+                    9 or 10 => a.rating.CompareTo(b.rating),
                     _ => 0
                 };
                 return _sortAsc ? cmp : -cmp;
@@ -1398,9 +1414,9 @@ namespace GameHub.Analytics.Editor
 
             _missionRows.AddRange(new[]
             {
-                new MissionRow { missionId="level_01", started=150, completed=120, failed=30, totalPlayTime=5424f, bestTime=35.2f, playerCount=15, completedPlayers=14 },
-                new MissionRow { missionId="level_02", started=130, completed=85,  failed=45, totalPlayTime=5329f, bestTime=48.6f, playerCount=14, completedPlayers=12 },
-                new MissionRow { missionId="level_03", started=90,  completed=40,  failed=50, totalPlayTime=3124f, bestTime=65.0f, playerCount=12, completedPlayers=9 },
+                new MissionRow { missionId="level_01", started=150, completed=120, failed=30, totalPlayTime=5424f, bestTime=35.2f, playerCount=15, completedPlayers=14, ratingSum=62, ratingCount=14 },
+                new MissionRow { missionId="level_02", started=130, completed=85,  failed=45, totalPlayTime=5329f, bestTime=48.6f, playerCount=14, completedPlayers=12, ratingSum=45, ratingCount=12 },
+                new MissionRow { missionId="level_03", started=90,  completed=40,  failed=50, totalPlayTime=3124f, bestTime=65.0f, playerCount=12, completedPlayers=9, ratingSum=33, ratingCount=9 },
                 new MissionRow { missionId="boss_01",  started=60,  completed=22,  failed=38, totalPlayTime=2651f, bestTime=98.4f, playerCount=10, completedPlayers=6 },
                 new MissionRow { missionId="level_04", started=45,  completed=38,  failed=7,  totalPlayTime=1360f, bestTime=28.1f, playerCount=8,  completedPlayers=7 },
                 new MissionRow { missionId="challenge_01", started=30, completed=8, failed=22, totalPlayTime=2859f, bestTime=89.5f, playerCount=6, completedPlayers=3 }
@@ -1408,9 +1424,9 @@ namespace GameHub.Analytics.Editor
 
             _playerRows.AddRange(new[]
             {
-                new PlayerRow { playerId="device_sam_s23_01", missionId="level_01", started=12, completed=10, failed=2, bestTime=35.2f, totalPlayTime=420f, lastPlayed=DateTime.UtcNow.AddMinutes(-15).ToString("o") },
+                new PlayerRow { playerId="device_sam_s23_01", missionId="level_01", rating=5, started=12, completed=10, failed=2, bestTime=35.2f, totalPlayTime=420f, lastPlayed=DateTime.UtcNow.AddMinutes(-15).ToString("o") },
                 new PlayerRow { playerId="device_sam_s23_01", missionId="level_02", started=8,  completed=5,  failed=3, bestTime=52.1f, totalPlayTime=390f, lastPlayed=DateTime.UtcNow.AddMinutes(-10).ToString("o") },
-                new PlayerRow { playerId="device_pixel7_02",  missionId="level_01", started=15, completed=14, failed=1, bestTime=38.4f, totalPlayTime=550f, lastPlayed=DateTime.UtcNow.AddHours(-1).ToString("o") },
+                new PlayerRow { playerId="device_pixel7_02",  missionId="level_01", rating=4, started=15, completed=14, failed=1, bestTime=38.4f, totalPlayTime=550f, lastPlayed=DateTime.UtcNow.AddHours(-1).ToString("o") },
                 new PlayerRow { playerId="device_pixel7_02",  missionId="boss_01",  started=6,  completed=2,  failed=4, bestTime=110.2f, totalPlayTime=680f, lastPlayed=DateTime.UtcNow.AddMinutes(-40).ToString("o") }
             });
 

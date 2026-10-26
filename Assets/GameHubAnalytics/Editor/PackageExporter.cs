@@ -7,8 +7,8 @@ namespace GameHub.Analytics.Editor
     public static class PackageExporter
     {
         private const string PACKAGE_ASSETS_PATH = "Assets/GameHubAnalytics";
-        private const string PACKAGE_NAME        = "GameHubAnalytics";
-        private const string PACKAGE_VERSION     = "1.1.0";
+        private const string PACKAGE_NAME = "GameHubAnalytics";
+        private const string PACKAGE_VERSION = "1.1.0";
 
         [MenuItem("GameHub/Analytics/📦 Export .unitypackage")]
         public static void ExportPackage()
@@ -24,7 +24,7 @@ namespace GameHub.Analytics.Editor
             }
 
             // Default save path: Desktop
-            string defaultDir  = System.Environment.GetFolderPath(System.Environment.SpecialFolder.Desktop);
+            string defaultDir = System.Environment.GetFolderPath(System.Environment.SpecialFolder.Desktop);
             string defaultName = $"{PACKAGE_NAME}_v{PACKAGE_VERSION}.unitypackage";
 
             string savePath = EditorUtility.SaveFilePanel(
@@ -131,7 +131,7 @@ namespace GameHub.Analytics.Editor
                 "  • Editor Dashboard xem thống kê\n" +
                 "  • Không cần Firebase Unity SDK\n\n" +
                 "Kết nối: Firebase Firestore REST API\n" +
-                "Liên hệ: GameHub Team",
+                "Liên hệ: Hieuthu3",
                 "OK");
         }
     }

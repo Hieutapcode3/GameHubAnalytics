@@ -238,8 +238,17 @@ namespace GameHub.Analytics
             StartCoroutine(_playerData.SavePlayerName(playerName));
         }
 
-        public void LogRateMission(string missionId, int stars) =>
+        public void LogRateMission(string missionId, int stars)
+        {
+            stars = Mathf.Clamp(stars, 1, 5);
             LogCustomEvent("rate_mission", missionId, new Dictionary<string, object> { { "stars", stars } });
+
+            // Also keep the latest rating on the player's mission doc so the dashboard can read it
+            // (the event list is capped, the mission docs are not).
+            if (_playerData == null || _config == null || !_config.isEnabled) return;
+            if (Application.isEditor && (_config.mobileOnlyForMissionEvents || _config.disableAllInEditor)) return;
+            StartCoroutine(_playerData.SaveMissionRating(missionId, stars));
+        }
 
         public string GetSessionId() => SessionManager.SessionId;
 
