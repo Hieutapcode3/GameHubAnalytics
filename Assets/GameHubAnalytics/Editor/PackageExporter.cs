@@ -41,7 +41,7 @@ namespace GameHub.Analytics.Editor
                 string[] allAssetPaths = AssetDatabase.GetAllAssetPaths();
                 foreach (var assetPath in allAssetPaths)
                 {
-                    if (!assetPath.StartsWith(PACKAGE_ASSETS_PATH, System.StringComparison.OrdinalIgnoreCase))
+                    if (!assetPath.StartsWith(PACKAGE_ASSETS_PATH + "/", System.StringComparison.OrdinalIgnoreCase))
                         continue;
 
                     string fileName = Path.GetFileName(assetPath);
@@ -86,6 +86,7 @@ namespace GameHub.Analytics.Editor
                 AssetDatabase.CreateFolder("Assets", "Resources");
 
             string assetPath = "Assets/Resources/AnalyticsConfig.asset";
+            IgnoreConfigInGit(assetPath);
 
             if (AssetDatabase.LoadAssetAtPath<AnalyticsConfig>(assetPath) != null)
             {
@@ -117,6 +118,16 @@ namespace GameHub.Analytics.Editor
                 $"AnalyticsConfig.asset đã tạo tại:\n{assetPath}\n\n" +
                 "Điền API Key và Project ID từ Firebase Console để bắt đầu.",
                 "OK");
+        }
+
+        // A .unitypackage can't carry the project's root .gitignore, so the config (holds the API key) is added to it here.
+        private static void IgnoreConfigInGit(string assetPath)
+        {
+            string gitignore = Path.Combine(Directory.GetParent(Application.dataPath).FullName, ".gitignore");
+            if (File.Exists(gitignore) && File.ReadAllText(gitignore).Contains(assetPath)) return;
+
+            File.AppendAllText(gitignore, $"\n# GameHub Analytics secrets (API key)\n{assetPath}\n{assetPath}.meta\n");
+            Debug.Log($"[Analytics] Added {assetPath} to {gitignore}");
         }
 
         [MenuItem("GameHub/Analytics/ℹ️ About")]

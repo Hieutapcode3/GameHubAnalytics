@@ -18,11 +18,18 @@ namespace GameHub.Analytics
         public string gameId = "";
 
         [Header("Behavior")]
-        [Tooltip("Master switch for analytics. When false, events are ignored.")]
+        [Tooltip("Master switch. When false: nothing is sent to or read from Firebase and the name / star rating popups are not shown. Firebase is never used from the Unity Editor either way.")]
         public bool isEnabled = true;
 
         [Tooltip("Show debug logs in Unity Console.")]
         public bool enableDebugLog = true;
+
+        [Header("Popups")]
+        [Tooltip("Ask the player's name (NamePanel) on first launch. Ignored when isEnabled is false.")]
+        public bool askPlayerName = true;
+
+        [Tooltip("Ask a 1-5 star rating (RatingPanel) after winning a level. Ignored when isEnabled is false.")]
+        public bool askStarRating = true;
 
         [Tooltip("Maximum queue capacity for offline events.")]
         [Range(10, 500)]
@@ -35,30 +42,6 @@ namespace GameHub.Analytics
         [Tooltip("HTTP request timeout in seconds.")]
         [Range(5f, 60f)]
         public float requestTimeoutSeconds = 10f;
-
-        [Header("Platform Filter")]
-        [Tooltip("Send mission events (Start, Win, Lose, Retry, Quit) to Firebase only on real mobile devices or emulators.")]
-        public bool mobileOnlyForMissionEvents = true;
-
-        [Tooltip("Send Win/Lose events to Firebase only on real mobile devices or emulators.")]
-        public bool mobileOnlyForWinLose = true;
-
-        [Tooltip("Disable all Firebase event transmissions when running in Unity Editor.")]
-        public bool disableAllInEditor = false;
-
-        public static bool IsMobileOrEmulator
-        {
-            get
-            {
-#if UNITY_EDITOR
-                return false;
-#else
-                return Application.isMobilePlatform ||
-                       Application.platform == RuntimePlatform.Android ||
-                       Application.platform == RuntimePlatform.IPhonePlayer;
-#endif
-            }
-        }
 
         public string CleanProjectId => projectId?.Trim() ?? "";
         public string CleanApiKey    => apiKey?.Trim() ?? "";

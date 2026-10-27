@@ -95,12 +95,10 @@ namespace GamePlay
             state = LevelState.Playing;
 
             string mId = MissionId;
-            bool isEditor = Application.isEditor;
-            bool skipFirebase = isEditor && (AnalyticsManager.Instance?.Config != null &&
-                (AnalyticsManager.Instance.Config.mobileOnlyForMissionEvents || AnalyticsManager.Instance.Config.disableAllInEditor));
+            bool skipFirebase = !AnalyticsManager.Instance.CanSend;
 
             lastStatusMessage = skipFirebase 
-                ? $"Playing {mId}... [Editor: Skip Firebase]" 
+                ? $"Playing {mId}... [Firebase OFF]" 
                 : $"Playing {mId}...";
 
             if (AnalyticsManager.Instance != null)
@@ -125,14 +123,11 @@ namespace GamePlay
             string mId = MissionId;
             float finalTime = playTime;
 
-            bool isEditor = Application.isEditor;
-            bool mobileOnly = AnalyticsManager.Instance != null && AnalyticsManager.Instance.Config != null &&
-                (AnalyticsManager.Instance.Config.mobileOnlyForWinLose || AnalyticsManager.Instance.Config.mobileOnlyForMissionEvents || AnalyticsManager.Instance.Config.disableAllInEditor);
-            bool skippedFirebase = isEditor && mobileOnly;
+            bool skippedFirebase = !AnalyticsManager.Instance.CanSend;
 
             if (skippedFirebase)
             {
-                lastStatusMessage = $"🎉 WIN {mId} ({finalTime:F1}s) [Editor: Skip Firebase]";
+                lastStatusMessage = $"🎉 WIN {mId} ({finalTime:F1}s) [Firebase OFF]";
             }
             else
             {
@@ -164,14 +159,11 @@ namespace GamePlay
             string mId = MissionId;
             float finalTime = playTime;
 
-            bool isEditor = Application.isEditor;
-            bool mobileOnly = AnalyticsManager.Instance != null && AnalyticsManager.Instance.Config != null &&
-                (AnalyticsManager.Instance.Config.mobileOnlyForWinLose || AnalyticsManager.Instance.Config.mobileOnlyForMissionEvents || AnalyticsManager.Instance.Config.disableAllInEditor);
-            bool skippedFirebase = isEditor && mobileOnly;
+            bool skippedFirebase = !AnalyticsManager.Instance.CanSend;
 
             if (skippedFirebase)
             {
-                lastStatusMessage = $"💀 LOSE {mId} ({finalTime:F1}s) [Editor: Skip Firebase]";
+                lastStatusMessage = $"💀 LOSE {mId} ({finalTime:F1}s) [Firebase OFF]";
             }
             else
             {

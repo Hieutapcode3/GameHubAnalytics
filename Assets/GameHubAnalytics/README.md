@@ -1,5 +1,7 @@
 # 🎮 GameHub Analytics
 
+> 📘 **Tích hợp code (hàm nào, gọi ở đâu, UI có sẵn): xem [MANUAL.md](MANUAL.md)** — file duy nhất cần đọc.
+
 > **Bộ công cụ Unity Analytics & Dữ liệu Gameplay nội bộ kết nối trực tiếp với Firebase Firestore**  
 > Giải pháp theo dõi chỉ số game (Start, Win Rate, Completion Rate, Play Time...) siêu nhẹ qua REST API — **Hoàn toàn KHÔNG cần cài đặt Firebase Unity SDK**.
 

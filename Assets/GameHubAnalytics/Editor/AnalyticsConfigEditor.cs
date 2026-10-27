@@ -55,9 +55,6 @@ namespace GameHub.Analytics.Editor
                 TestConnectionAsync(config);
             GUI.enabled = true;
 
-            if (GUILayout.Button("📤  Send Test Event", GUILayout.Height(32)))
-                SendTestEvent(config);
-
             EditorGUILayout.EndHorizontal();
 
             EditorGUILayout.BeginHorizontal();
@@ -123,42 +120,6 @@ namespace GameHub.Analytics.Editor
                 request.Dispose();
                 Repaint();
             };
-        }
-
-        private void SendTestEvent(AnalyticsConfig config)
-        {
-            if (!Application.isPlaying)
-            {
-                _statusMessage = "⚠️  Vào Play Mode trước để gửi test event.";
-                _statusIsError = false;
-                _statusIsGood  = false;
-                Repaint();
-                return;
-            }
-
-            if (!config.IsValid)
-            {
-                _statusMessage = "❌  Config chưa hợp lệ. Điền API Key và Project ID trước.";
-                _statusIsError = true;
-                Repaint();
-                return;
-            }
-
-            AnalyticsManager.Instance.Initialize();
-            AnalyticsManager.Instance.LogCustomEvent(
-                "editor_test",
-                "test_mission",
-                new System.Collections.Generic.Dictionary<string, object>
-                {
-                    { "source",    "unity_editor"                        },
-                    { "timestamp", System.DateTime.UtcNow.ToString("o")  }
-                }
-            );
-
-            _statusMessage = "📤  Test event đã gửi! Xem Console để biết kết quả.";
-            _statusIsGood  = true;
-            _statusIsError = false;
-            Repaint();
         }
     }
 }

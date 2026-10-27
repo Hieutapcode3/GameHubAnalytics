@@ -26,6 +26,7 @@ namespace GameHub.Analytics
         private PlayerDataManager _playerData;
         private string            _currentPlayerId;
         private bool             _initialized;
+        private bool             _enabled;
         private Coroutine        _retryCoroutine;
 
         public static event Action<MissionEvent> OnEventLogged;
@@ -96,13 +97,13 @@ namespace GameHub.Analytics
             _currentPlayerId = LoadOrCreatePlayerId();
             _playerData      = new PlayerDataManager(config, _currentPlayerId);
             _initialized     = true;
+            _enabled         = config.isEnabled;
 
             Debug.Log($"[Analytics] Initialized | game={config.CleanGameId} | player={_currentPlayerId} | session={SessionManager.SessionId}");
 
-            if (!(_config != null && _config.disableAllInEditor && Application.isEditor))
-            {
-                StartCoroutine(_playerData.UpsertProfile());
-            }
+            if (!CanSend) return;
+
+            StartCoroutine(_playerData.UpsertProfile());
 
             if (_queue.HasPending)
             {
@@ -113,12 +114,7 @@ namespace GameHub.Analytics
 
         public void LogStartMission(string missionId, int retryCount = 0)
         {
-            if (_config != null && (_config.mobileOnlyForMissionEvents || _config.disableAllInEditor) && Application.isEditor)
-            {
-                if (_config.enableDebugLog)
-                    Debug.Log($"<color=#FF9800>[Analytics]</color> [Platform Filter] Skipping start mission '{missionId}' event in Editor.");
-                return;
-            }
+            if (!CanSendOrLog($"start_mission {missionId}")) return;
 
             var evt = CreateEvent("start_mission", missionId);
             evt.retryCount = retryCount;
@@ -131,12 +127,7 @@ namespace GameHub.Analytics
         public void LogCompleteMission(string missionId, float playTime,
                                        Dictionary<string, object> extraData = null)
         {
-            if (_config != null && (_config.mobileOnlyForWinLose || _config.mobileOnlyForMissionEvents || _config.disableAllInEditor) && Application.isEditor)
-            {
-                if (_config.enableDebugLog)
-                    Debug.Log($"<color=#FF9800>[Analytics]</color> [Platform Filter] Skipping complete mission '{missionId}' event in Editor.");
-                return;
-            }
+            if (!CanSendOrLog($"complete_mission {missionId}")) return;
 
             var evt = CreateEvent("complete_mission", missionId);
             evt.playTime = playTime;
@@ -150,12 +141,7 @@ namespace GameHub.Analytics
         public void LogFailMission(string missionId, float playTime,
                                    Dictionary<string, object> extraData = null)
         {
-            if (_config != null && (_config.mobileOnlyForWinLose || _config.mobileOnlyForMissionEvents || _config.disableAllInEditor) && Application.isEditor)
-            {
-                if (_config.enableDebugLog)
-                    Debug.Log($"<color=#FF9800>[Analytics]</color> [Platform Filter] Skipping fail mission '{missionId}' event in Editor.");
-                return;
-            }
+            if (!CanSendOrLog($"fail_mission {missionId}")) return;
 
             var evt = CreateEvent("fail_mission", missionId);
             evt.playTime = playTime;
@@ -168,23 +154,13 @@ namespace GameHub.Analytics
 
         public void LogRetryMission(string missionId)
         {
-            if (_config != null && (_config.mobileOnlyForMissionEvents || _config.disableAllInEditor) && Application.isEditor)
-            {
-                if (_config.enableDebugLog)
-                    Debug.Log($"<color=#FF9800>[Analytics]</color> [Platform Filter] Skipping retry mission '{missionId}' event in Editor.");
-                return;
-            }
+            if (!CanSendOrLog($"retry_mission {missionId}")) return;
             DispatchEvent(CreateEvent("retry_mission", missionId));
         }
 
         public void LogQuitMission(string missionId, float playTime)
         {
-            if (_config != null && (_config.mobileOnlyForMissionEvents || _config.disableAllInEditor) && Application.isEditor)
-            {
-                if (_config.enableDebugLog)
-                    Debug.Log($"<color=#FF9800>[Analytics]</color> [Platform Filter] Skipping quit mission '{missionId}' event in Editor.");
-                return;
-            }
+            if (!CanSendOrLog($"quit_mission {missionId}")) return;
             var evt = CreateEvent("quit_mission", missionId);
             evt.playTime = playTime;
             DispatchEvent(evt);
@@ -194,6 +170,8 @@ namespace GameHub.Analytics
                                    string missionId = "global",
                                    Dictionary<string, object> customData = null)
         {
+            if (!CanSendOrLog(eventName)) return;
+
             var evt = CreateEvent(eventName, missionId);
             if (customData != null) evt.customData = customData;
             DispatchEvent(evt);
@@ -217,7 +195,7 @@ namespace GameHub.Analytics
         public void GetPlayerName(Action<string> onComplete)
         {
             if (!string.IsNullOrEmpty(PlayerName)) { onComplete?.Invoke(PlayerName); return; }
-            if (!CheckInitialized() || (_config.disableAllInEditor && Application.isEditor)) { onComplete?.Invoke(""); return; }
+            if (!CanSend) { onComplete?.Invoke(""); return; }
 
             StartCoroutine(_playerData.FetchPlayerName(name =>
             {
@@ -234,19 +212,19 @@ namespace GameHub.Analytics
         {
             PlayerPrefs.SetString(PlayerNameKey, playerName);
             PlayerPrefs.Save();
-            if (!CheckInitialized() || (_config.disableAllInEditor && Application.isEditor)) return;
+            if (!CanSendOrLog("set_player_name")) return;
             StartCoroutine(_playerData.SavePlayerName(playerName));
         }
 
         public void LogRateMission(string missionId, int stars)
         {
+            if (!CanSendOrLog($"rate_mission {missionId}")) return;
+
             stars = Mathf.Clamp(stars, 1, 5);
             LogCustomEvent("rate_mission", missionId, new Dictionary<string, object> { { "stars", stars } });
 
             // Also keep the latest rating on the player's mission doc so the dashboard can read it
             // (the event list is capped, the mission docs are not).
-            if (_playerData == null || _config == null || !_config.isEnabled) return;
-            if (Application.isEditor && (_config.mobileOnlyForMissionEvents || _config.disableAllInEditor)) return;
             StartCoroutine(_playerData.SaveMissionRating(missionId, stars));
         }
 
@@ -267,7 +245,7 @@ namespace GameHub.Analytics
 
         public void GetPlayerMissionStats(string missionId, Action<PlayerMissionStats> onComplete)
         {
-            if (!CheckInitialized()) { onComplete?.Invoke(null); return; }
+            if (!CanSend) { onComplete?.Invoke(null); return; }
             StartCoroutine(_playerData.GetMissionStats(missionId, onComplete));
         }
 
@@ -289,9 +267,28 @@ namespace GameHub.Analytics
 
         public bool IsInitialized => _initialized;
 
-        public void SetEnabled(bool enabled)
+        /// <summary>Config isEnabled (or SetEnabled). False = no Firebase and no name / rating popups.</summary>
+        public bool IsEnabled => _initialized && _enabled;
+
+        /// <summary>Show the NamePanel: enabled and config askPlayerName.</summary>
+        public bool AskPlayerName => IsEnabled && _config.askPlayerName;
+
+        /// <summary>Show the RatingPanel after a win: enabled and config askStarRating.</summary>
+        public bool AskStarRating => IsEnabled && _config.askStarRating;
+
+        /// <summary>True when Firebase is actually used: enabled and not running in the Unity Editor.</summary>
+        public bool CanSend => IsEnabled && !Application.isEditor;
+
+        /// <summary>Runtime only; does not change the AnalyticsConfig asset.</summary>
+        public void SetEnabled(bool enabled) => _enabled = enabled;
+
+        // Every Firebase write goes through here, so disabling or running in the Editor sends nothing.
+        private bool CanSendOrLog(string what)
         {
-            if (_config != null) _config.isEnabled = enabled;
+            if (CanSend) return true;
+            if (_config != null && _config.enableDebugLog)
+                Debug.Log($"<color=#FF9800>[Analytics]</color> Skipped '{what}' ({(IsEnabled ? "Unity Editor" : "isEnabled = false")})");
+            return false;
         }
 
         private MissionEvent CreateEvent(string eventType, string missionId)
@@ -303,21 +300,6 @@ namespace GameHub.Analytics
 
         private void DispatchEvent(MissionEvent evt)
         {
-            if (!CheckInitialized()) return;
-
-            if (!_config.isEnabled)
-            {
-                Debug.Log("[Analytics] Analytics disabled (isEnabled=false). Event dropped.");
-                return;
-            }
-
-            if (_config.disableAllInEditor && Application.isEditor)
-            {
-                if (_config.enableDebugLog)
-                    Debug.Log($"<color=#FF9800>[Analytics]</color> [Platform Filter] Skipping event '{evt.eventType}' because disableAllInEditor=true in Editor.");
-                return;
-            }
-
             SessionManager.IncrementEventCount();
             OnEventLogged?.Invoke(evt);
             StartCoroutine(SendEventCoroutine(evt));
@@ -353,6 +335,7 @@ namespace GameHub.Analytics
                 yield return new WaitForSeconds(_config.retryIntervalSeconds);
 
                 if (!_queue.HasPending) break;
+                if (!CanSend) continue; // SetEnabled(false) at runtime: keep the queue, send nothing
 
                 Debug.Log($"[Analytics] Retrying {_queue.Count} queued event(s)...");
 
