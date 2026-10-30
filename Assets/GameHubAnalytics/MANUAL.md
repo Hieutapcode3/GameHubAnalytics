@@ -342,3 +342,13 @@ Không cần mở trình duyệt web hay truy cập Firebase Console phức tạ
    - **Tab Người Chơi (Players)**: Chia danh sách theo từng `Player ID` riêng biệt với thẻ tóm tắt và nút thu gọn/mở rộng.
    - **Nút `📁 Xuất Excel (.xlsx)`**: Tự động tạo file Excel chuẩn OpenXML, trong đó **mỗi `Player ID` nằm trên 1 trang tính (Sheet/Tab) riêng biệt**, tương thích 100% khi mở bằng Microsoft Excel hoặc Google Sheets.
    - **Nút `🌐 Copy Cho Google Sheets`**: Copy dữ liệu dạng bảng vào Clipboard để Paste 1-click vào Google Sheets.
+
+### 6.1. Google Sheet Tự Cập Nhật (Không Cần Mở Unity)
+
+File `GoogleSheetSync/GameHubSheetSync.gs` là 1 Apps Script: Google Sheet tự kéo dữ liệu từ Firestore theo lịch, cùng layout với file Excel xuất ra (sheet `Màn Chơi` + mỗi người chơi 1 sheet).
+1. Tạo 1 Google Sheet mới → **Tiện ích mở rộng (Extensions) > Apps Script**.
+2. Xoá code mặc định, dán toàn bộ nội dung `GameHubSheetSync.gs`, điền `apiKey`, `projectId`, `gameId` (giống `AnalyticsConfig`).
+3. Chọn hàm `setup` → **Run** → cấp quyền. Xong: sheet tự cập nhật mỗi `everyMinutes` phút (mặc định 5).
+4. Muốn cập nhật ngay: menu **GameHub > Sync now** trên Sheet.
+
+> Script chỉ ghi đè các sheet do nó tạo; các tab khác bạn tự thêm sẽ được giữ nguyên. Nếu Firestore lỗi, dữ liệu cũ trên sheet không bị xoá.
